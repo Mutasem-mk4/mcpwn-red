@@ -53,6 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            build-essential \
             debhelper \
             devscripts \
             dh-python \
@@ -92,4 +93,6 @@ jobs:
             HEAD
 
       - name: Build Debian package
-        run: dpkg-buildpackage -us -uc
+        run: |
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc
