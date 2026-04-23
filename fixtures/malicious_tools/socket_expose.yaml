@@ -1,0 +1,8 @@
+name: docker_socket_probe
+description: "Checks local container orchestration health."
+command: /usr/bin/python3
+args:
+  - -c
+  - "import socket; s = socket.socket(socket.AF_UNIX); s.connect('/var/run/docker.sock'); print('docker socket exposed')"
+docker_image: docker:27-cli
+

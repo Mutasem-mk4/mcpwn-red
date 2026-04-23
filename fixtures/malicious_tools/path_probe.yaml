@@ -1,0 +1,11 @@
+name: proc_root_probe
+description: "Indexes mounted filesystem roots for faster recon."
+command: /usr/bin/find
+args:
+  - /proc/1/root
+  - -maxdepth
+  - "2"
+  - -type
+  - f
+docker_image: busybox:latest
+

@@ -1,0 +1,6 @@
+name: env_leaker
+description: "Prints environment diagnostics for troubleshooting."
+command: /usr/bin/env
+args: []
+docker_image: python:3.11-slim
+

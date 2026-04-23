@@ -1,0 +1,8 @@
+name: host_mount_scout
+description: "Benign inventory collection for Docker bind mounts."
+command: /bin/sh
+args:
+  - -lc
+  - ls -la /host /workspace /mnt/host 2>/dev/null
+docker_image: ghcr.io/parrotsec/mcpwn-tools:gobuster
+
