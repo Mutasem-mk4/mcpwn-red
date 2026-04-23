@@ -61,6 +61,7 @@ jobs:
             pybuild-plugin-pyproject \
             python3-all \
             python3-click \
+            python3-hatchling \
             python3-httpx \
             python3-jinja2 \
             python3-pydantic \
