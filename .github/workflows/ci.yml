@@ -70,7 +70,8 @@ jobs:
 
       - name: Install CI shim for python3-mcp
         run: |
-          cat > python3-mcp-ci.control <<'EOF'
+          tmpdir="$(mktemp -d)"
+          cat > "${tmpdir}/python3-mcp-ci.control" <<'EOF'
           Section: python
           Priority: optional
           Standards-Version: 4.6.2
@@ -82,8 +83,11 @@ jobs:
            This package exists only to satisfy the mcpwn-red Debian build
            dependency in CI until python3-mcp is packaged in the archive.
           EOF
-          equivs-build python3-mcp-ci.control
-          sudo dpkg -i ./python3-mcp_1.0.0_all.deb
+          (
+            cd "${tmpdir}"
+            equivs-build python3-mcp-ci.control
+          )
+          sudo dpkg -i "${tmpdir}/python3-mcp_1.0.0_all.deb"
 
       - name: Create upstream orig tarball
         run: |
