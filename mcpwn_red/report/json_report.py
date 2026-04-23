@@ -1,15 +1,13 @@
-"""JSON report rendering."""
-
 from __future__ import annotations
 
-import json
+from pathlib import Path
 
 from mcpwn_red.attacks.base import ScanReport
 
 
-def report_to_json(report: ScanReport, *, pretty: bool = True) -> str:
-    payload = report.model_dump(mode="json")
-    if pretty:
-        return json.dumps(payload, indent=2, sort_keys=True)
-    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+def save_json(report: ScanReport, path: Path) -> None:
+    path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
 
+
+def load_json(path: Path) -> ScanReport:
+    return ScanReport.model_validate_json(path.read_text(encoding="utf-8"))

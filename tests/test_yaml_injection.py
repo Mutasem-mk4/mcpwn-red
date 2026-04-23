@@ -1,77 +1,83 @@
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
-import yaml
-from mcp.types import Tool
 
-from mcpwn_red.attacks.yaml_injection import YAMLInjectionTester, YAML_FIXTURES
-from tests.conftest import make_tool
+from mcpwn_red.attacks.yaml_injection import YAML_FIXTURES, YamlInjectionTester
 
 
-class RejectingClient:
-    def __init__(self, config: Any) -> None:
-        self.config = config
+@pytest.mark.asyncio
+async def test_bash_exec_fixture_written(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
+) -> None:
+    tester = YamlInjectionTester(tmp_tools_dir)
+    fixture = YAML_FIXTURES[0]
+    fixture_path = tmp_tools_dir / fixture.file_name
+    seen = {"exists": False}
 
-    async def __aenter__(self) -> "RejectingClient":
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        return None
-
-    async def list_tools(self) -> list[Tool]:
+    async def list_tools_side_effect() -> list[dict[str, str]]:
+        seen["exists"] = fixture_path.exists()
         return []
 
-
-class EnumeratingClient:
-    tools_dir: Any = None
-
-    def __init__(self, config: Any) -> None:
-        self.config = config
-
-    async def __aenter__(self) -> "EnumeratingClient":
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        return None
-
-    async def list_tools(self) -> list[Tool]:
-        tools = []
-        for fixture_path in self.tools_dir.glob("*.yaml"):
-            payload = yaml.safe_load(fixture_path.read_text(encoding="utf-8"))
-            tools.append(make_tool(payload["name"], description=payload["description"]))
-        return tools
+    mock_mcp_client.list_tools.side_effect = list_tools_side_effect
+    await tester.run_fixture(mock_mcp_client, fixture)
+    assert seen["exists"] is True
 
 
 @pytest.mark.asyncio
-async def test_yaml_module_passes_when_tool_not_loaded(
-    monkeypatch: pytest.MonkeyPatch,
-    client_config: Any,
-    tmp_path: Any,
+async def test_bash_exec_fixture_removed(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
 ) -> None:
-    monkeypatch.setattr("mcpwn_red.attacks.yaml_injection.MCPClient", RejectingClient)
-    tester = YAMLInjectionTester(client_config, confirm_write=True, tools_dir=tmp_path)
-
-    results = await tester.run()
-
-    assert len(results) == len(YAML_FIXTURES)
-    assert all(result.status == "PASS" for result in results)
-    assert list(tmp_path.iterdir()) == []
+    tester = YamlInjectionTester(tmp_tools_dir)
+    fixture = YAML_FIXTURES[0]
+    fixture_path = tmp_tools_dir / fixture.file_name
+    await tester.run_fixture(mock_mcp_client, fixture)
+    assert fixture_path.exists() is False
 
 
 @pytest.mark.asyncio
-async def test_yaml_module_fails_when_fixture_is_exposed(
-    monkeypatch: pytest.MonkeyPatch,
-    client_config: Any,
-    tmp_path: Any,
+async def test_hidden_instruction_fail(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
 ) -> None:
-    EnumeratingClient.tools_dir = tmp_path
-    monkeypatch.setattr("mcpwn_red.attacks.yaml_injection.MCPClient", EnumeratingClient)
-    tester = YAMLInjectionTester(client_config, confirm_write=True, tools_dir=tmp_path)
+    tester = YamlInjectionTester(tmp_tools_dir)
+    fixture = next(item for item in YAML_FIXTURES if item.name == "hidden_instruction")
+    mock_mcp_client.list_tools.return_value = [{"name": "hidden_instruction"}]
+    result = await tester.run_fixture(mock_mcp_client, fixture)
+    assert result.status == "FAIL"
 
-    results = await tester.run()
 
-    assert all(result.status == "FAIL" for result in results)
-    assert "description=" in results[0].evidence
+@pytest.mark.asyncio
+async def test_schema_missing_pass(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
+) -> None:
+    tester = YamlInjectionTester(tmp_tools_dir)
+    fixture = next(item for item in YAML_FIXTURES if item.name == "schema_missing")
+    mock_mcp_client.list_tools.return_value = [{"name": "nmap"}]
+    result = await tester.run_fixture(mock_mcp_client, fixture)
+    assert result.status == "PASS"
 
+
+@pytest.mark.asyncio
+async def test_result_has_evidence(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
+) -> None:
+    tester = YamlInjectionTester(tmp_tools_dir)
+    results = await tester.run(mock_mcp_client)
+    assert all(isinstance(result.evidence, str) and result.evidence for result in results)
+
+
+@pytest.mark.asyncio
+async def test_all_fixtures_produce_results(
+    mock_mcp_client: AsyncMock,
+    tmp_tools_dir: Path,
+) -> None:
+    tester = YamlInjectionTester(tmp_tools_dir)
+    results = await tester.run(mock_mcp_client)
+    assert len(results) == 8

@@ -1,65 +1,80 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from mcp.types import Implementation, InitializeResult, ListToolsResult, ServerCapabilities, ToolsCapability
 
-from mcpwn_red.mcp_client import MCPClient, MCPClientConfig, MCPClientError
-from tests.conftest import make_tool
+from mcpwn_red.mcp_client import MCPClient, MCPClientError
 
 
 class FakeTransport:
-    async def __aenter__(self) -> tuple[str, str]:
-        return ("read", "write")
+    async def __aenter__(self) -> tuple[object, object]:
+        return object(), object()
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         return None
 
 
-@dataclass
 class FakeSession:
-    read_stream: Any
-    write_stream: Any
-    client_info: Any | None = None
+    def __init__(self, read_stream: object, write_stream: object) -> None:
+        self.read_stream = read_stream
+        self.write_stream = write_stream
 
-    async def __aenter__(self) -> "FakeSession":
+    async def __aenter__(self) -> FakeSession:
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         return None
 
-    async def initialize(self) -> InitializeResult:
-        return InitializeResult(
-            protocolVersion="2025-06-18",
-            capabilities=ServerCapabilities(tools=ToolsCapability(listChanged=True)),
-            serverInfo=Implementation(name="mcpwn", version="7.1"),
-            instructions="",
-        )
+    async def initialize(self) -> Any:
+        return SimpleNamespace(serverInfo=SimpleNamespace(version="7.1"))
 
-    async def list_tools(self) -> ListToolsResult:
-        return ListToolsResult(
-            tools=[make_tool("nmap", properties={"target": {"type": "string"}}, required=["target"])]
+    async def list_tools(self) -> Any:
+        tool = SimpleNamespace(
+            model_dump=lambda **_: {
+                "name": "nmap",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"target": {"type": "string"}},
+                    "required": ["target"],
+                },
+            }
         )
+        return SimpleNamespace(tools=[tool])
+
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        read_timeout_seconds: Any,
+    ) -> Any:
+        return SimpleNamespace(isError=False, content=[SimpleNamespace(text="OK")])
 
 
 @pytest.mark.asyncio
-async def test_probe_uses_initialized_session(monkeypatch: pytest.MonkeyPatch, client_config: MCPClientConfig) -> None:
-    monkeypatch.setattr("mcpwn_red.mcp_client.stdio_client", lambda params: FakeTransport())
+async def test_connect_list_and_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("mcpwn_red.mcp_client.stdio_client", lambda _server: FakeTransport())
     monkeypatch.setattr("mcpwn_red.mcp_client.ClientSession", FakeSession)
-
-    async with MCPClient(client_config) as client:
-        probe = await client.probe()
-
-    assert probe["server_name"] == "mcpwn"
-    assert probe["server_version"] == "7.1"
-    assert probe["tool_count"] == 1
+    client = MCPClient()
+    await client.connect()
+    tools = await client.list_tools()
+    output = await client.call_tool("nmap", {"target": "127.0.0.1"})
+    await client.disconnect()
+    assert tools[0]["name"] == "nmap"
+    assert output == "OK"
 
 
 @pytest.mark.asyncio
-async def test_sse_requires_url() -> None:
-    with pytest.raises(MCPClientError):
-        async with MCPClient(MCPClientConfig(transport="sse", timeout=5.0)):
-            pass
+async def test_connect_wraps_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BrokenTransport:
+        async def __aenter__(self) -> tuple[object, object]:
+            raise FileNotFoundError("mcpwn")
 
+        async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+    monkeypatch.setattr("mcpwn_red.mcp_client.stdio_client", lambda _server: BrokenTransport())
+    client = MCPClient()
+    with pytest.raises(MCPClientError):
+        await client.connect()

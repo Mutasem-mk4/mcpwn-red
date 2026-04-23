@@ -1,71 +1,116 @@
-"""HTML report renderer."""
-
 from __future__ import annotations
 
-from jinja2 import Environment, select_autoescape
+from jinja2 import Template
 
 from mcpwn_red.attacks.base import ScanReport
 
-_TEMPLATE = """
+
+def render_html(report: ScanReport) -> str:
+    template = Template(
+        """
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>{{ report.tool }} report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>mcpwn-red Scan Report</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    >
     <style>
-      body { font-family: "IBM Plex Sans", "Segoe UI", sans-serif; background: #f4efe8; color: #1d1b18; margin: 2rem; }
-      h1, h2 { color: #7a2f24; }
-      table { border-collapse: collapse; width: 100%; margin: 1rem 0 2rem; background: #fffdf8; }
-      th, td { border: 1px solid #d9c8b8; padding: 0.75rem; vertical-align: top; text-align: left; }
-      th { background: #f1dfcd; }
-      .PASS { color: #1f7a1f; font-weight: 700; }
-      .FAIL { color: #9b1c1c; font-weight: 700; }
-      .UNKNOWN { color: #8a6500; font-weight: 700; }
-      .ERROR { color: #6a1b1b; font-weight: 700; }
-      code { background: #f5eee4; padding: 0.1rem 0.3rem; border-radius: 3px; }
+      @media print {
+        .no-print { display: none !important; }
+        body { margin: 0; }
+      }
+      .evidence-pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
     </style>
   </head>
-  <body>
-    <h1>{{ report.tool }} report</h1>
-    <p>
-      Version <code>{{ report.version }}</code><br>
-      Timestamp <code>{{ report.timestamp.isoformat() }}</code><br>
-      MCPwn version <code>{{ report.mcpwn_version or "unknown" }}</code><br>
-      Transport <code>{{ report.transport }}</code>
-    </p>
+  <body class="bg-light">
+    <div class="container py-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 class="h3 mb-1">mcpwn-red Scan Report</h1>
+          <div class="text-muted">{{ report.timestamp.isoformat() }}</div>
+        </div>
+        <span class="badge text-bg-dark">{{ report.transport }}</span>
+      </div>
 
-    <h2>Summary</h2>
-    <table>
-      <tr><th>Status</th><th>Count</th></tr>
-      {% for status, count in report.summary.items() %}
-      <tr><td>{{ status }}</td><td>{{ count }}</td></tr>
-      {% endfor %}
-    </table>
+      <div class="row g-3 mb-4">
+        {% for status, count in report.summary.items() %}
+        <div class="col-sm-6 col-lg-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="text-muted small">{{ status }}</div>
+              <div class="fs-3 fw-bold">{{ count }}</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
 
-    <h2>Results</h2>
-    <table>
-      <tr>
-        <th>ID</th><th>Module</th><th>Status</th><th>Severity</th><th>Name</th><th>Evidence</th><th>Recommendation</th>
-      </tr>
-      {% for result in report.results %}
-      <tr>
-        <td>{{ result.id }}</td>
-        <td>{{ result.module }}</td>
-        <td class="{{ result.status }}">{{ result.status }}</td>
-        <td>{{ result.severity }}</td>
-        <td>{{ result.name }}</td>
-        <td>{{ result.evidence }}</td>
-        <td>{{ result.recommendation }}</td>
-      </tr>
-      {% endfor %}
-    </table>
+      <div class="card shadow-sm">
+        <div class="card-header">Results</div>
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Module</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Severity</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for result in report.results %}
+              <tr>
+                <td>{{ result.id }}</td>
+                <td>{{ result.module }}</td>
+                <td>{{ result.name }}</td>
+                <td>
+                  {% if result.status == "PASS" %}
+                  <span class="badge text-bg-success">PASS</span>
+                  {% elif result.status == "FAIL" %}
+                  <span class="badge text-bg-danger">FAIL</span>
+                  {% elif result.status == "UNKNOWN" %}
+                  <span class="badge text-bg-warning">UNKNOWN</span>
+                  {% else %}
+                  <span class="badge text-bg-secondary">ERROR</span>
+                  {% endif %}
+                </td>
+                <td>{{ result.severity }}</td>
+                <td>
+                  <button
+                    class="btn btn-sm btn-outline-secondary no-print"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#evidence-{{ loop.index }}"
+                  >
+                    Toggle
+                  </button>
+                  <div class="collapse show mt-2" id="evidence-{{ loop.index }}">
+                    <div class="evidence-pre small">{{ result.evidence }}</div>
+                    <div class="small mt-2">
+                      <strong>Recommendation:</strong> {{ result.recommendation }}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    ></script>
   </body>
 </html>
-""".strip()
-
-
-def render_html_report(report: ScanReport) -> str:
-    environment = Environment(autoescape=select_autoescape(["html", "xml"]))
-    template = environment.from_string(_TEMPLATE)
+        """
+    )
     return template.render(report=report)
-
