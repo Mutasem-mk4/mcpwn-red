@@ -58,6 +58,7 @@ jobs:
             devscripts \
             dh-python \
             equivs \
+            pybuild-plugin-pyproject \
             python3-all \
             python3-click \
             python3-httpx \
