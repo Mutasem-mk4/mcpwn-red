@@ -1,6 +1,23 @@
 # mcpwn-red
 
-Adversarial safety harness for the MCPwn AI pentesting execution engine.
+Pre-engagement safety validator for MCPwn deployments.
+
+[![CI](https://github.com/Mutasem-mk4/mcpwn-red/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mutasem-mk4/mcpwn-red/actions/workflows/ci.yml)
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
+
+`mcpwn-red` is an adversarial safety harness for the MCPwn AI pentesting execution engine. It is designed to help an authorized operator validate MCPwn itself before using it in a real client environment.
+
+## Why This Exists
+
+- Validate that MCPwn cannot be manipulated by hostile tool definitions or tool output before an engagement starts.
+- Check whether MCPwn preserves container and scope boundaries that should protect the operator.
+- Produce terminal, JSON, Markdown, and HTML evidence that can be reviewed before a consultant trusts the platform.
+
+## Packaging Status
+
+- Python lint, type checks, tests, and build pass locally.
+- GitHub Actions Python and Debian package jobs pass on `main`.
+- Archive acceptance is still gated on `python3-mcp` being available in Parrot/Debian, or being packaged separately first.
 
 ## Problem Statement
 
