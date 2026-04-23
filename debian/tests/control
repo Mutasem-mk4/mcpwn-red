@@ -1,0 +1,14 @@
+Depends:
+ @,
+ python3-click,
+ python3-httpx,
+ python3-jinja2,
+ python3-mcp,
+ python3-pydantic,
+ python3-rich,
+ python3-yaml
+Test-Command:
+ mcpwn-red --version >/dev/null &&
+ mcpwn-red --help >/dev/null &&
+ mcpwn-red list >/dev/null
+Restrictions: superficial

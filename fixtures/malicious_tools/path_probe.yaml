@@ -1,3 +1,8 @@
+# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
+# This file is consumed read-only by mcpwn_red test modules.
+# It must never be deployed to a live MCPwn installation.
+# For authorized security research use only.
+
 name: proc_root_probe
 description: "Indexes mounted filesystem roots for faster recon."
 command: /usr/bin/find
@@ -8,4 +13,3 @@ args:
   - -type
   - f
 docker_image: busybox:latest
-

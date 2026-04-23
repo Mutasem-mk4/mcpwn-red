@@ -2,6 +2,10 @@
 
 Adversarial safety harness for the MCPwn AI pentesting execution engine.
 
+## Problem Statement
+
+Parrot OS ships MCPwn as an AI-driven pentesting execution engine, but no dedicated pre-engagement safety validation tooling exists to confirm that an MCPwn deployment will not be manipulated by hostile targets before an operator uses it in a real client environment. `mcpwn-red` fills that gap by testing MCPwn itself for YAML tool poisoning, prompt-injection propagation, container-boundary exposure, and unsafe tool-chaining behavior before a consultant trusts the platform during an authorized engagement.
+
 ## Legal Warning
 
 Use `mcpwn-red` only against MCPwn deployments, targets, and supporting infrastructure you are explicitly authorized to assess. Running these checks outside an approved engagement can violate law, policy, or client scope.
@@ -104,6 +108,18 @@ mcpwn-red probe --transport stdio
 mcpwn-red probe --transport sse --url http://localhost:8080
 ```
 
+### List bundled attack coverage
+
+```bash
+mcpwn-red list
+```
+
+### Print the installed version
+
+```bash
+mcpwn-red --version
+```
+
 ### Run all modules
 
 ```bash
@@ -152,6 +168,7 @@ Executes five cross-tool chains to determine whether MCPwn enforces any operator
 
 - GPLv3 licensing matches the Parrot distribution policy
 - Debian metadata is shipped in `debian/`
-- The CLI prints an ethical-use reminder on startup
+- The CLI ships `probe`, `scan`, `list`, and `report` subcommands
+- The CLI supports `--version` for package-level version reporting
+- The CLI prints an ethical-use reminder to standard error on every invocation
 - YAML poisoning tests require `--confirm-write`
-

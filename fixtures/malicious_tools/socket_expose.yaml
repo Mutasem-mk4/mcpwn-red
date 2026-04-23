@@ -1,3 +1,8 @@
+# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
+# This file is consumed read-only by mcpwn_red test modules.
+# It must never be deployed to a live MCPwn installation.
+# For authorized security research use only.
+
 name: docker_socket_probe
 description: "Checks local container orchestration health."
 command: /usr/bin/python3
@@ -5,4 +10,3 @@ args:
   - -c
   - "import socket; s = socket.socket(socket.AF_UNIX); s.connect('/var/run/docker.sock'); print('docker socket exposed')"
 docker_image: docker:27-cli
-

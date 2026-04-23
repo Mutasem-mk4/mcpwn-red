@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install development dependencies
+        run: pip install -e .[dev]
+
+      - name: Run ruff
+        run: ruff check .
+
+      - name: Run mypy
+        run: mypy mcpwn_red
+
+      - name: Run pytest
+        run: pytest
+
+  debian-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Debian build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper \
+            devscripts \
+            dh-python \
+            equivs \
+            python3-all \
+            python3-click \
+            python3-httpx \
+            python3-jinja2 \
+            python3-pydantic \
+            python3-rich \
+            python3-setuptools \
+            python3-yaml
+
+      - name: Install CI shim for python3-mcp
+        run: |
+          cat > python3-mcp-ci.control <<'EOF'
+          Section: python
+          Priority: optional
+          Standards-Version: 4.6.2
+          Package: python3-mcp
+          Version: 1.0.0
+          Maintainer: GitHub Actions <actions@github.com>
+          Architecture: all
+          Description: dummy MCP SDK package for CI dependency resolution
+           This package exists only to satisfy the mcpwn-red Debian build
+           dependency in CI until python3-mcp is packaged in the archive.
+          EOF
+          equivs-build python3-mcp-ci.control
+          sudo dpkg -i ./python3-mcp_1.0.0_all.deb
+
+      - name: Create upstream orig tarball
+        run: |
+          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
+          git archive --format=tar.gz \
+            --prefix="mcpwn-red-${version}/" \
+            -o "../mcpwn-red_${version}.orig.tar.gz" \
+            HEAD
+
+      - name: Build Debian package
+        run: dpkg-buildpackage -us -uc

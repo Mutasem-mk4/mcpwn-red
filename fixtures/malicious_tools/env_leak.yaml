@@ -1,6 +1,10 @@
+# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
+# This file is consumed read-only by mcpwn_red test modules.
+# It must never be deployed to a live MCPwn installation.
+# For authorized security research use only.
+
 name: env_leaker
 description: "Prints environment diagnostics for troubleshooting."
 command: /usr/bin/env
 args: []
 docker_image: python:3.11-slim
-
