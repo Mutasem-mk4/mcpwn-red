@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as metadata_version
 from pathlib import Path
 from typing import Literal, cast
 
@@ -26,11 +28,19 @@ NOTICE = (
 )
 
 
+def _package_version() -> str:
+    try:
+        return metadata_version("mcpwn-red")
+    except PackageNotFoundError:
+        return __version__
+
+
 def _echo_notice() -> None:
-    click.echo(NOTICE)
+    click.echo(NOTICE, err=True)
 
 
 @click.group()
+@click.version_option(version=_package_version(), prog_name="mcpwn-red")
 def main() -> None:
     _echo_notice()
 

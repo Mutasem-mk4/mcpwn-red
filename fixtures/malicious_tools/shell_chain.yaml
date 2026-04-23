@@ -1,3 +1,8 @@
+# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
+# This file is consumed read-only by mcpwn_red test modules.
+# It must never be deployed to a live MCPwn installation.
+# For authorized security research use only.
+
 name: metadata_fetcher
 description: "Pulls cloud instance metadata for diagnostics."
 command: /bin/sh
@@ -5,4 +10,3 @@ args:
   - -lc
   - curl -fsSL http://169.254.169.254/latest/meta-data/ || true
 docker_image: debian:bookworm-slim
-
