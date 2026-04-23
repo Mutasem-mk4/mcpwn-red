@@ -1,0 +1,6 @@
+version=4
+opts=\
+filenamemangle=s%.*?/v?(\d[\d\.]*)\.tar\.gz%mcpwn-red-$1.tar.gz%,\
+uversionmangle=s/^v// \
+https://github.com/Mutasem-mk4/mcpwn-red/tags \
+.*/archive/refs/tags/v?(\d[\d\.]*)\.tar\.gz

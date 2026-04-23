@@ -1,14 +1,33 @@
 Source: mcpwn-red
 Section: python
 Priority: optional
-Maintainer: Parrot Security Maintainers <team@parrotsec.org>
+Maintainer: Mutasem Kharma <140179052+Mutasem-mk4@users.noreply.github.com>
+Homepage: https://github.com/Mutasem-mk4/mcpwn-red
+Vcs-Git: https://github.com/Mutasem-mk4/mcpwn-red.git
+Vcs-Browser: https://github.com/Mutasem-mk4/mcpwn-red
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Testsuite: autopkgtest-pkg-pybuild
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
  pybuild-plugin-pyproject,
  python3-all,
+ python3-click,
+ python3-hatchling,
+ python3-httpx,
+ python3-jinja2,
+ python3-mcp,
+ python3-pydantic,
+ python3-rich,
  python3-setuptools,
- python3-anyio,
+ python3-yaml
+
+Package: mcpwn-red
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
  python3-click,
  python3-httpx,
  python3-jinja2,
@@ -16,17 +35,10 @@ Build-Depends:
  python3-pydantic,
  python3-rich,
  python3-yaml
-Standards-Version: 4.7.0
-Rules-Requires-Root: no
-Homepage: https://github.com/parrotsec/mcpwn-red
-
-Package: python3-mcpwn-red
-Architecture: all
-Depends:
- ${misc:Depends},
- ${python3:Depends}
 Description: adversarial safety harness for the MCPwn execution engine
  mcpwn-red validates whether Parrot OS MCPwn deployments can be subverted by
  malicious YAML tool definitions, prompt-injection output, container boundary
  weaknesses, or unconstrained cross-tool chaining.
-
+ .
+ The runtime dependency on python3-mcp may require separate source packaging if
+ the MCP SDK has not yet landed in the target Parrot or Debian archive.

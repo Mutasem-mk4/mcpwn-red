@@ -1,0 +1,122 @@
+.TH MCPWN-RED 1 "April 2026" "mcpwn-red 0.1.0" "User Commands"
+.SH NAME
+mcpwn-red \- adversarial safety harness for the MCPwn AI pentesting execution engine
+.SH SYNOPSIS
+.B mcpwn-red
+[\fB\-\-version\fR]
+[\fB\-\-help\fR]
+.br
+.B mcpwn-red
+\fBprobe\fR [\fB\-\-transport\fR \fIstdio|sse\fR] [\fB\-\-url\fR \fIURL\fR] [\fB\-\-timeout\fR \fISECONDS\fR]
+.br
+.B mcpwn-red
+\fBlist\fR
+.br
+.B mcpwn-red
+\fBscan\fR [\fB\-\-transport\fR \fIstdio|sse\fR] [\fB\-\-url\fR \fIURL\fR] [\fB\-\-timeout\fR \fISECONDS\fR]
+[\fB\-\-module\fR \fIyaml|output|container|scope\fR | \fB\-\-all\fR]
+[\fB\-\-confirm-write\fR] [\fB\-\-output-dir\fR \fIPATH\fR]
+.br
+.B mcpwn-red
+\fBreport\fR \fB\-\-input\fR \fIPATH\fR [\fB\-\-format\fR \fImarkdown|html\fR] [\fB\-\-output\fR \fIPATH\fR]
+.SH DESCRIPTION
+.B mcpwn-red
+validates the operator safety of Parrot OS MCPwn deployments before they are
+used in client engagements. It checks for YAML tool-definition poisoning,
+prompt-injection propagation through tool output, container isolation failures,
+and unsafe scope escalation across supported MCPwn tools.
+.PP
+The program prints an ethical-use notice on every invocation and is intended
+only for authorized testing against MCPwn instances controlled by the operator
+or covered by explicit written permission.
+.SH SUBCOMMANDS
+.TP
+.B probe
+Connect to an MCPwn instance over stdio or SSE and perform a
+.B tools/list
+request to confirm the service is reachable.
+.TP
+.B scan
+Run one attack module or all modules, save a JSON report, and print a terminal
+summary. The
+.B yaml
+module requires
+.B \-\-confirm-write
+because it writes temporary test fixtures into the MCPwn tools directory.
+.TP
+.B list
+Print the bundled attack catalog with attack IDs, modules, severities, and
+one-line descriptions. This command does not require a live MCPwn connection.
+.TP
+.B report
+Render a previously saved JSON results file as Markdown or HTML.
+.SH OPTIONS
+.TP
+.B \-\-version
+Print the installed package version and exit.
+.TP
+.B \-\-help
+Show command help and exit.
+.TP
+.BI \-\-transport " stdio|sse"
+Select the MCP transport. The default is
+.BR stdio .
+.TP
+.BI \-\-url " URL"
+SSE endpoint URL. Required when
+.B \-\-transport sse
+is used.
+.TP
+.BI \-\-timeout " SECONDS"
+Per-request timeout in seconds. The default is 30.
+.TP
+.BI \-\-module " yaml|output|container|scope"
+Run only the selected module.
+.TP
+.B \-\-all
+Run every attack module in a single scan.
+.TP
+.B \-\-confirm-write
+Allow the YAML module to write temporary malicious tool definitions for testing.
+.TP
+.BI \-\-output-dir " PATH"
+Directory used to store
+.B results.json
+for the
+.B scan
+subcommand. The default is
+.BR ./mcpwn-red-results .
+.TP
+.BI \-\-input " PATH"
+Input JSON report path for the
+.B report
+subcommand.
+.TP
+.BI \-\-format " markdown|html"
+Output format for the
+.B report
+subcommand. The default is
+.BR markdown .
+.TP
+.BI \-\-output " PATH"
+Write the rendered report to a file instead of standard output.
+.SH FILES
+.TP
+.I ~/.config/mcpwn/tools/
+Default MCPwn YAML tool-definition directory exercised by the YAML injection module.
+.TP
+.I ./mcpwn-red-results/results.json
+Default JSON report path written by
+.BR mcpwn-red scan .
+.TP
+.I /usr/share/doc/mcpwn-red/
+Installed package documentation.
+.SH AUTHOR
+Mutasem Kharma.
+.PP
+Debian packaging for Parrot OS repository submission maintained for the
+.B mcpwn-red
+project.
+.SH LICENSE
+GPL version 3. On Debian systems, the complete license text is available in
+.IR /usr/share/common-licenses/GPL-3 .

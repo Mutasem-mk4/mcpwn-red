@@ -1,0 +1,12 @@
+* text=auto
+
+*.py text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+*.1 text eol=lf
+debian/* text eol=lf
+debian/tests/* text eol=lf

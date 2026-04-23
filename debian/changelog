@@ -1,6 +1,6 @@
 mcpwn-red (0.1.0-1) unstable; urgency=medium
 
-  * Initial release for Parrot OS MCPwn hardening assessments.
+  * Initial Debian packaging for Parrot OS repository submission.
+  * Add policy-compliant metadata, man page, CI, and pybuild compatibility.
 
- -- OpenAI Codex <codex@openai.com>  Thu, 23 Apr 2026 12:00:00 +0300
-
+ -- Mutasem Kharma <140179052+Mutasem-mk4@users.noreply.github.com>  Thu, 23 Apr 2026 12:00:00 +0300
