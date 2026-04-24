@@ -172,10 +172,11 @@ jobs:
       - name: Create upstream orig tarball
         run: |
           version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
-          git archive --format=tar.gz \
-            --prefix="mcpwn-red-${version}/" \
-            -o "../mcpwn-red_${version}.orig.tar.gz" \
-            HEAD
+          tar \
+            --exclude-vcs \
+            --transform "s,^\./,mcpwn-red-${version}/," \
+            -czf "../mcpwn-red_${version}.orig.tar.gz" \
+            .
 
       - name: Build Debian package
         run: |
