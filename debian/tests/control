@@ -8,7 +8,7 @@ Depends:
  python3-rich,
  python3-yaml
 Test-Command:
- mcpwn-red --version >/dev/null &&
- mcpwn-red --help >/dev/null &&
- mcpwn-red list >/dev/null
+ mcpwn-red --version >/dev/null 2>/dev/null &&
+ mcpwn-red --help >/dev/null 2>/dev/null &&
+ mcpwn-red list >/dev/null 2>/dev/null
 Restrictions: superficial
