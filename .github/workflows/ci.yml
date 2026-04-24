@@ -188,4 +188,4 @@ jobs:
         run: lintian ../mcpwn-red_0.1.0-1_*.changes
 
       - name: Run autopkgtest
-        run: autopkgtest ../python-mcp_1.27.0-1_amd64.changes ../mcpwn-red_0.1.0-1_amd64.changes -- null
+        run: autopkgtest ../python3-mcp_1.27.0-1_all.deb ../mcpwn-red_0.1.0-1_amd64.changes -- null
