@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Literal, cast
 
 import click
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich.align import Align
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from mcpwn_red import __version__
 from mcpwn_red.attacks import (
@@ -50,12 +50,18 @@ def _package_version() -> str:
 def _echo_banner() -> None:
     console = Console()
     console.print(Align.center(f"[bold red]{BANNER}[/bold red]"))
-    console.print(Align.center(f"[bold white]v{_package_version()} | Adversarial Safety Harness for MCPwn[/bold white]\n"))
+    version_text = f"v{_package_version()} | Adversarial Safety Harness for MCPwn"
+    console.print(Align.center(f"[bold white]{version_text}[/bold white]\n"))
 
 
 def _echo_notice() -> None:
     console = Console(stderr=True)
-    console.print(Panel(NOTICE, title="[bold red]ETHICAL USE ENFORCEMENT[/bold red]", border_style="red"))
+    panel = Panel(
+        NOTICE,
+        title="[bold red]ETHICAL USE ENFORCEMENT[/bold red]",
+        border_style="red",
+    )
+    console.print(panel)
 
 
 @click.group()
