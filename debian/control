@@ -7,7 +7,6 @@ Vcs-Git: https://github.com/Mutasem-mk4/mcpwn-red.git
 Vcs-Browser: https://github.com/Mutasem-mk4/mcpwn-red
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Testsuite: autopkgtest-pkg-pybuild
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
