@@ -1,4 +1,4 @@
-<img src="assets/logo.jpeg" alt="mcpwn-red logo" width="100%">
+<img src="assets/mcpwn-red-hero-classified.jpeg" alt="mcpwn-red logo" width="100%">
 
 # mcpwn-red 🛡️
 
