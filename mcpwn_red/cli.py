@@ -9,6 +9,8 @@ from typing import Literal, cast
 import click
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
+from rich.align import Align
 
 from mcpwn_red import __version__
 from mcpwn_red.attacks import (
@@ -21,8 +23,18 @@ from mcpwn_red.attacks.base import ScanReport, summarize_results
 from mcpwn_red.mcp_client import MCPClient, MCPClientError
 from mcpwn_red.report import load_json, print_report, render_html, render_markdown, save_json
 
+BANNER = r"""
+  __  __  _____ _____               _   _      _____  ______ _____  
+ |  \/  |/ ____|  __ \             | \ | |    |  __ \|  ____|  __ \ 
+ | \  / | |    | |__) |_      ___  |  \| |____| |__) | |__  | |  | |
+ | |\/| | |    |  ___/\ \ /\ / / _ \ | . ` |____|  _  /|  __| | |  | |
+ | |  | | |____| |     \ V  V /  __/ | |\  |    | | \ \| |____| |__| |
+ |_|  |_|\_____|_|      \_/\_/ \___| |_| \_|    |_|  \_\______|_____/ 
+                                                                    
+"""
+
 NOTICE = (
-    "[mcpwn-red] For authorized use only. "
+    "FOR AUTHORIZED USE ONLY. "
     "Use only against MCPwn instances you own "
     "or have explicit written permission to test."
 )
@@ -35,13 +47,21 @@ def _package_version() -> str:
         return __version__
 
 
+def _echo_banner() -> None:
+    console = Console()
+    console.print(Align.center(f"[bold red]{BANNER}[/bold red]"))
+    console.print(Align.center(f"[bold white]v{_package_version()} | Adversarial Safety Harness for MCPwn[/bold white]\n"))
+
+
 def _echo_notice() -> None:
-    click.echo(NOTICE, err=True)
+    console = Console(stderr=True)
+    console.print(Panel(NOTICE, title="[bold red]ETHICAL USE ENFORCEMENT[/bold red]", border_style="red"))
 
 
 @click.group()
 @click.version_option(version=_package_version(), prog_name="mcpwn-red")
 def main() -> None:
+    _echo_banner()
     _echo_notice()
 
 
