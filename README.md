@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/logo_classified.jpeg" alt="mcpwn-red logo" width="600">
-</p>
+<img src="assets/logo_classified.jpeg" alt="mcpwn-red logo" width="100%">
 
 # mcpwn-red 🛡️
 
