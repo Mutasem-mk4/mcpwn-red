@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - parrot/submission-clean
   pull_request:
     branches:
       - main
@@ -102,3 +103,86 @@ jobs:
         run: |
           chmod +x debian/rules
           dpkg-buildpackage -us -uc
+
+  debian-validation:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:sid
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Debian packaging tools and base dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            autopkgtest \
+            build-essential \
+            ca-certificates \
+            debhelper \
+            devscripts \
+            dh-python \
+            git \
+            lintian \
+            pybuild-plugin-pyproject \
+            python3-all \
+            python3-build \
+            python3-click \
+            python3-hatchling \
+            python3-httpx \
+            python3-jinja2 \
+            python3-pydantic \
+            python3-rich \
+            python3-yaml
+
+      - name: Clone python3-mcp packaging repository
+        run: git clone --depth 1 https://github.com/Mutasem-mk4/python3-mcp-debian.git ../python3-mcp-debian
+
+      - name: Install python3-mcp dependency set
+        run: |
+          apt-get install -y \
+            python3-anyio \
+            python3-httpx-sse \
+            python3-jsonschema \
+            python3-jwt \
+            python3-multipart \
+            python3-pydantic-settings \
+            python3-sse-starlette \
+            python3-starlette \
+            python3-typer \
+            python3-typing-extensions \
+            python3-typing-inspection \
+            python3-uvicorn \
+            python3-websockets
+
+      - name: Build and install python3-mcp
+        run: |
+          cd ../python3-mcp-debian
+          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
+          git archive --format=tar.gz \
+            --prefix="python-mcp-${version}/" \
+            -o "../python-mcp_${version}.orig.tar.gz" \
+            HEAD
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc
+          apt-get install -y ../python3-mcp_*_all.deb
+
+      - name: Create upstream orig tarball
+        run: |
+          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
+          git archive --format=tar.gz \
+            --prefix="mcpwn-red-${version}/" \
+            -o "../mcpwn-red_${version}.orig.tar.gz" \
+            HEAD
+
+      - name: Build Debian package
+        run: |
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc
+
+      - name: Run lintian
+        run: lintian ../mcpwn-red_0.1.0-1_*.changes
+
+      - name: Run autopkgtest
+        run: autopkgtest . -- null
