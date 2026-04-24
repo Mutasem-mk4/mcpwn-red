@@ -135,6 +135,7 @@ jobs:
             python3-jinja2 \
             python3-pydantic \
             python3-rich \
+            python3-setuptools \
             python3-yaml
 
       - name: Clone python3-mcp packaging repository
@@ -187,4 +188,4 @@ jobs:
         run: lintian ../mcpwn-red_0.1.0-1_*.changes
 
       - name: Run autopkgtest
-        run: autopkgtest . -- null
+        run: autopkgtest ../python-mcp_1.27.0-1_amd64.changes ../mcpwn-red_0.1.0-1_amd64.changes -- null
