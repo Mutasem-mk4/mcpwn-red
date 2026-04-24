@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.jpeg" alt="mcpwn-red logo" width="600">
+  <img src="assets/logo_classified.jpeg" alt="mcpwn-red logo" width="600">
 </p>
 
 # mcpwn-red 🛡️
