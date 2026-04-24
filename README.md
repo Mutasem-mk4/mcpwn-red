@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.jpeg" alt="mcpwn-red logo" width="600">
+</p>
+
 # mcpwn-red 🛡️
 
 **Adversarial safety harness for the MCPwn AI pentesting execution engine.**
