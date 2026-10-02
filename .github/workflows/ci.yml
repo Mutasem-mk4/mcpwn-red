@@ -50,7 +50,7 @@ jobs:
           git clone https://gitlab.com/parrotsec/project/mcpwn.git "$RUNNER_TEMP/mcpwn-target"
           cd "$RUNNER_TEMP/mcpwn-target"
           git checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
-          go build -o "$RUNNER_TEMP/mcpwn-test" .
+          go build -o "$RUNNER_TEMP/mcpwn-test" ./cmd/mcpwn
           echo "MCPWN_TEST_COMMAND=$RUNNER_TEMP/mcpwn-test" >> "$GITHUB_ENV"
 
       - name: Run pytest including real MCPwn configuration tests

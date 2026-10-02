@@ -68,9 +68,10 @@ autopkgtest . -- null
 ## 4. Known Validation Quirks
 
 ### Autopkgtest Exit Code 8
-In some environments, `autopkgtest` may exit with code `8` (no tests found or 
-skipped) if it only runs superficial smoke tests. This should be treated as 
-success if the smoke tests actually executed as intended.
+The package declares its CLI smoke tests as `superficial`. Autopkgtest status
+8 records a run containing only superficial tests; it does not mean no tests were
+found. CI accepts status 0 or 8 for this smoke suite and fails on other statuses.
+Smoke tests do not validate a deployment assessment or container isolation.
 
 ### Ethical-use Notice on Stderr
 `mcpwn-red` prints an ethical-use notice to `stderr` on startup. In some 
