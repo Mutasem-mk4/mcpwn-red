@@ -138,7 +138,7 @@ jobs:
           dpkg-buildpackage -us -uc
 
       - name: Run lintian
-        run: lintian ../mcpwn-red_0.1.0-1_*.changes
+        run: lintian ../mcpwn-red_*.changes
 
       - name: Run autopkgtest
         run: |
@@ -148,3 +148,14 @@ jobs:
           if [ "$status" -ne 0 ] && [ "$status" -ne 8 ]; then
             exit "$status"
           fi
+
+      - name: Collect Debian release artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp ../mcpwn-red_*.deb ../mcpwn-red_*.changes ../mcpwn-red_*.orig.tar.gz release-artifacts/
+
+      - name: Upload Debian release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mcpwn-red-debian
+          path: release-artifacts/*
