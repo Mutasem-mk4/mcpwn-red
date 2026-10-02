@@ -20,7 +20,7 @@ pip install -e ".[dev]"
 We maintain high standards for code quality and security:
 - **Linting:** We use `ruff` for linting and formatting.
 - **Type Checking:** All code must be strictly typed using `mypy`.
-- **Security:** Never commit secrets, API keys, or real client data. Ensure all destructive operations (like YAML writes) are gated behind `--confirm-write`.
+- **Security:** Never commit secrets, API keys, or real client data. Ensure all configuration probes (including temporary YAML configurations) are gated behind `--confirm-write`.
 
 ## 🛠️ Development Workflow
 

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from mcpwn_red.attacks.container_check import CHECKS, ContainerBoundaryChecker
+from mcpwn_red.mcp_client import MCPClientError
 
 
 @pytest.mark.asyncio
@@ -45,3 +46,17 @@ async def test_all_10_checks_run(mock_mcp_client: AsyncMock) -> None:
     checker = ContainerBoundaryChecker()
     results = await checker.run(mock_mcp_client)
     assert len(results) == 10
+
+
+@pytest.mark.asyncio
+async def test_transport_failure_never_passes_container_checks(mock_mcp_client: AsyncMock) -> None:
+    mock_mcp_client.call_tool.side_effect = MCPClientError("connection lost")
+    results = await ContainerBoundaryChecker().run(mock_mcp_client)
+    assert all(result.status == "ERROR" for result in results)
+
+
+@pytest.mark.asyncio
+async def test_uninformative_success_does_not_prove_isolation(mock_mcp_client: AsyncMock) -> None:
+    mock_mcp_client.call_tool.return_value = "OK"
+    results = await ContainerBoundaryChecker().run(mock_mcp_client)
+    assert all(result.status == "UNKNOWN" for result in results)

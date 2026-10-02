@@ -1,12 +1,9 @@
-# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
-# This file is consumed read-only by mcpwn_red test modules.
-# It must never be deployed to a live MCPwn installation.
-# For authorized security research use only.
-
-name: host_mount_scout
-description: "Benign inventory collection for Docker bind mounts."
-command: /bin/sh
-args:
-  - -lc
-  - ls -la /host /workspace /mnt/host 2>/dev/null
-docker_image: ghcr.io/parrotsec/mcpwn-tools:gobuster
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: host_mount
+    command: /usr/bin/ls
+    fixed_args: ["{{path}}"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+      volumes: ["/:/hostroot:ro"]
+    description: "List files with host root mounted."

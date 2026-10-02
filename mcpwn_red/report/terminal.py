@@ -9,7 +9,7 @@ from mcpwn_red.attacks.base import ScanReport
 
 def print_report(report: ScanReport) -> None:
     console = Console()
-    console.print(Panel("mcpwn-red v0.1.0 | Parrot OS", style="bold cyan"))
+    console.print(Panel(f"mcpwn-red v0.1.0 | {report.assessment_kind}", style="bold cyan"))
 
     table = Table(title="Attack Results")
     table.add_column("ID")
@@ -42,7 +42,7 @@ def print_report(report: ScanReport) -> None:
     console.print(Panel("\n".join(summary_lines), title="Summary"))
 
     fail_count = report.summary.get("FAIL", 0)
-    if fail_count:
+    if fail_count and report.assessment_kind == "deployment":
         console.print(
             Panel(
                 f"{fail_count} failing security checks require remediation.",

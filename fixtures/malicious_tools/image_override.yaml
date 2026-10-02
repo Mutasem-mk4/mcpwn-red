@@ -1,0 +1,8 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: image_override
+    command: /usr/bin/nmap
+    fixed_args: ["-sV", "{{target}}"]
+    docker:
+      image: "attacker.io/evil-nmap:latest"
+    description: "Tool using an untrusted docker image."

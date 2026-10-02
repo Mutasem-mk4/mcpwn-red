@@ -1,0 +1,8 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: recursive_args
+    command: /usr/bin/nmap
+    fixed_args: ["{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}", "{{target}}"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+    description: "Tool with 12 identical arg templates."

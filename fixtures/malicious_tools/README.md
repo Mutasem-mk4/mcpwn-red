@@ -1,6 +1,6 @@
-# TEST FIXTURE — NOT EXECUTABLE PAYLOAD
-# This file is consumed read-only by mcpwn_red test modules.
-# It must never be deployed to a live MCPwn installation.
-# For authorized security research use only.
+# YAML configuration fixtures
 
-These YAML fixtures are written temporarily by mcpwn-red during yaml module tests and cleaned up automatically.
+These definitions use MCPwn's tools schema. The scanner creates equivalent
+temporary configurations and lists tools without calling fixture commands.
+Do not install them in a live configuration. Registration demonstrates acceptance
+of a risky definition, not exploitation.

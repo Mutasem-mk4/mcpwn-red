@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
+from mcp.types import CallToolResult, TextContent
 
 from mcpwn_red.mcp_client import MCPClient, MCPClientError
 
@@ -54,7 +56,9 @@ class FakeSession:
 
 @pytest.mark.asyncio
 async def test_connect_list_and_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("mcpwn_red.mcp_client.stdio_client", lambda _server: FakeTransport())
+    monkeypatch.setattr(
+        "mcpwn_red.mcp_client.stdio_client", lambda _server, **_kwargs: FakeTransport()
+    )
     monkeypatch.setattr("mcpwn_red.mcp_client.ClientSession", FakeSession)
     client = MCPClient()
     await client.connect()
@@ -74,7 +78,30 @@ async def test_connect_wraps_failures(monkeypatch: pytest.MonkeyPatch) -> None:
         async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
             return None
 
-    monkeypatch.setattr("mcpwn_red.mcp_client.stdio_client", lambda _server: BrokenTransport())
+    monkeypatch.setattr(
+        "mcpwn_red.mcp_client.stdio_client", lambda _server, **_kwargs: BrokenTransport()
+    )
     client = MCPClient()
     with pytest.raises(MCPClientError):
         await client.connect()
+
+
+@pytest.mark.asyncio
+async def test_sdk_response_keeps_all_text_blocks() -> None:
+    client = MCPClient()
+    client._session = AsyncMock()
+    client._session.call_tool.return_value = CallToolResult(
+        content=[TextContent(type="text", text="header"), TextContent(type="text", text="evidence")]
+    )
+    assert await client.call_tool("probe", {}) == "header\nevidence"
+
+
+@pytest.mark.asyncio
+async def test_sdk_tool_error_preserves_diagnostic() -> None:
+    client = MCPClient()
+    client._session = AsyncMock()
+    client._session.call_tool.return_value = CallToolResult(
+        isError=True, content=[TextContent(type="text", text="permission denied")]
+    )
+    with pytest.raises(MCPClientError, match="permission denied"):
+        await client.call_tool("probe", {})

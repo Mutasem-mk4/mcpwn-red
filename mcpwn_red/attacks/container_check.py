@@ -132,7 +132,7 @@ class ContainerBoundaryChecker:
                     tool["name"],
                     build_arguments(tool, {"target": "../../etc/passwd", "ports": "80"}),
                 )
-                status = "FAIL" if "root:" in response else "PASS"
+                status = self._evidence_status(response, exposed="root:" in response)
                 return self._result(check, started_at, status, response)
 
             if check.attack_id == "CHECK-02":
@@ -147,7 +147,7 @@ class ContainerBoundaryChecker:
                     ),
                 )
                 lower = response.lower()
-                status = "PASS" if "path" in lower or "no such file" in lower else "FAIL"
+                status = self._evidence_status(response, exposed="root:" in lower)
                 return self._result(check, started_at, status, response)
 
             if check.attack_id == "CHECK-03":
@@ -185,10 +185,11 @@ class ContainerBoundaryChecker:
                 )
                 response = await client.call_tool(tool["name"], build_arguments(tool, desired))
                 lower = response.lower()
-                status = (
-                    "PASS"
-                    if "no such file" in lower or "permission denied" in lower
-                    else "FAIL"
+                status = self._evidence_status(
+                    response,
+                    exposed="/var/run/docker.sock" in lower
+                    and "no such file" not in lower
+                    and "permission denied" not in lower,
                 )
                 return self._result(check, started_at, status, response)
 
@@ -201,7 +202,9 @@ class ContainerBoundaryChecker:
                     build_arguments(tool, {"target": "172.17.0.1", "ports": "1-1024"}),
                 )
                 lower = response.lower()
-                status = "FAIL" if "open" in lower and "172.17.0.1" in lower else "PASS"
+                status = self._evidence_status(
+                    response, exposed="open" in lower and "172.17.0.1" in lower
+                )
                 return self._result(check, started_at, status, response)
 
             if check.attack_id == "CHECK-07":
@@ -215,7 +218,9 @@ class ContainerBoundaryChecker:
                 )
                 response = await client.call_tool(tool["name"], build_arguments(tool, desired))
                 lower = response.lower()
-                status = "FAIL" if "python" in lower or "systemd" in lower else "PASS"
+                status = self._evidence_status(
+                    response, exposed="python" in lower or "systemd" in lower
+                )
                 return self._result(check, started_at, status, response)
 
             if check.attack_id == "CHECK-08":
@@ -233,7 +238,9 @@ class ContainerBoundaryChecker:
                 )
                 response = await client.call_tool(tool["name"], build_arguments(tool, desired))
                 lower = response.lower()
-                status = "FAIL" if "/home" in lower and "invalid" not in lower else "PASS"
+                status = self._evidence_status(
+                    response, exposed="/home" in lower and "invalid" not in lower
+                )
                 return self._result(check, started_at, status, response)
 
             if check.attack_id == "CHECK-09":
@@ -245,7 +252,9 @@ class ContainerBoundaryChecker:
                     build_arguments(tool, {"target": "localhost", "ports": "2375,2376"}),
                 )
                 lower = response.lower()
-                status = "FAIL" if "2375/tcp open" in lower or "2376/tcp open" in lower else "PASS"
+                status = self._evidence_status(
+                    response, exposed="2375/tcp open" in lower or "2376/tcp open" in lower
+                )
                 return self._result(check, started_at, status, response)
 
             tool = find_tool(tools, ("nmap", "gobuster", "ffuf", "curl", "sqlmap"))
@@ -256,10 +265,16 @@ class ContainerBoundaryChecker:
                 build_arguments(tool, {"target": "$HOME", "url": "$HOME"}),
             )
             lower = response.lower()
-            status = "FAIL" if "/home/" in lower or "\\users\\" in lower else "PASS"
+            status = (
+                "PASS"
+                if "$HOME" in response
+                else self._evidence_status(
+                    response, exposed="/home/" in lower or "\\users\\" in lower
+                )
+            )
             return self._result(check, started_at, status, response)
         except MCPClientError as exc:
-            return self._result(check, started_at, "PASS", str(exc))
+            return self._result(check, started_at, "ERROR", str(exc))
 
     async def _run_literal_env_check(
         self,
@@ -286,8 +301,29 @@ class ContainerBoundaryChecker:
             "FAIL"
             if variable not in response and ("tcp://" in lower or "/" in response)
             else "PASS"
+            if variable in response
+            else self._evidence_status(response, exposed=False)
         )
         return self._result(check, started_at, status, response)
+
+    @staticmethod
+    def _evidence_status(response: str, *, exposed: bool) -> str:
+        if exposed:
+            return "FAIL"
+        if any(
+            marker in response.lower()
+            for marker in (
+                "permission denied",
+                "access denied",
+                "invalid path",
+                "no such file",
+                "not allowed",
+                "refused",
+                "blocked by policy",
+            )
+        ):
+            return "PASS"
+        return "UNKNOWN"
 
     def _unknown(
         self,

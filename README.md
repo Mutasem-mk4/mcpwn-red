@@ -9,7 +9,7 @@
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](pyproject.toml)
 [![Parrot OS: Submission Active](https://img.shields.io/badge/Parrot%20OS-Submission%20Active-brightgreen.svg)](https://gitlab.com/parrotsec/project/community/-/work_items/62)
 
-`mcpwn-red` is a pre-engagement safety validator designed for security professionals using MCPwn. It allows operators to verify the integrity and isolation of their AI-assisted execution environment *before* trusting it in a production engagement.
+`mcpwn-red` is a pre-engagement safety validator designed for security professionals using MCPwn. It reports evidence from configured checks; a passing check does not establish the safety of an entire deployment.
 
 ---
 
@@ -22,7 +22,7 @@ pip install .
 # Probe reachability
 mcpwn-red probe --transport stdio
 
-# Run full safety scan
+# Run deployment checks (YAML launches temporary MCPwn instances)
 mcpwn-red scan --all --transport stdio --confirm-write
 ```
 
@@ -47,10 +47,10 @@ As AI-driven pentesting engines like MCPwn become standard in security workflows
 
 ## 🛠️ Features
 
-- **Protocol Native:** Built on the official `mcp>=1.0` SDK.
+- **Protocol Native:** Built on the official `mcp>=1.0,<2` SDK.
 - **Visual Reports:** Professional terminal tables, Markdown, and HTML report generation.
 - **Safety First:** Destructive write tests are gated behind `--confirm-write`.
-- **Distro Ready:** Fully compatible with Parrot OS and Debian packaging standards.
+- **Packaging:** Debian source packaging is included; archive acceptance requires maintainer review.
 
 ---
 
@@ -58,8 +58,8 @@ As AI-driven pentesting engines like MCPwn become standard in security workflows
 
 `mcpwn-red` is designed to be a first-class citizen in the Parrot OS ecosystem.
 - **Manpages:** Full documentation available via `man mcpwn-red`.
-- **Metadata:** Compliant with `lintian` and `autopkgtest` standards.
-- **Binary Package:** Available as a `.deb` for seamless integration.
+- **Validation:** CI runs Debian builds, lintian, and CLI smoke tests.
+- **Dependency:** Debian builds require a packaged `python3-mcp` version below 2.
 
 ---
 
@@ -81,3 +81,32 @@ Use `mcpwn-red` only against MCPwn deployments you are authorized to assess. The
 ## 📝 License
 
 Distributed under the **GPL-3.0-only** License. See `LICENSE` for more information.
+
+## Scan interpretation
+
+`--all` runs YAML, container, and scope deployment checks. Container and scope
+checks call tools on the selected deployment; use an authorized test environment.
+YAML checks copy the executable selected by `--mcpwn-command` (default: `mcpwn`)
+into a temporary directory and place a single `mcpwn.yaml` alongside it before
+startup. They list tools without executing fixture commands. A baseline must
+register the control tool before a rejection can count as PASS. Existing user
+configuration files are not written.
+
+A registered risky definition is FAIL; registration alone does not prove execution,
+unauthorized configuration access, or a prompt injection exploit. An absent tool
+without explicit configuration rejection is UNKNOWN. Server/transport errors are
+ERROR, never proof of policy enforcement.
+
+Run the local output simulation separately:
+
+```bash
+mcpwn-red scan --module output --output-dir simulation-results
+```
+
+The simulation starts a local mock server. It measures payload propagation and
+does not assess an MCPwn deployment or an AI agent. Its JSON report contains
+`assessment_kind: "simulation"`; deployment scans use `"deployment"`.
+
+Scan exits 0 for completed checks without findings, 1 for FAIL findings, and
+2 for ERROR, UNKNOWN, or an empty assessment. Incomplete checks take precedence
+over findings. Inspect `results.json` before using a scan as an automated gate.

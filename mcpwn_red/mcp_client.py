@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from datetime import timedelta
-from typing import Any, Literal
+from typing import Any, Literal, TextIO
 
 import httpx
 from mcp import ClientSession
@@ -25,6 +26,7 @@ class MCPClient:
         command: str = "mcpwn",
         command_args: list[str] | None = None,
         env: dict[str, str] | None = None,
+        errlog: TextIO = sys.stderr,
     ) -> None:
         self.transport = transport
         self.url = url
@@ -32,6 +34,7 @@ class MCPClient:
         self.command = command
         self.command_args = command_args or []
         self.env = env
+        self.errlog = errlog
         self._transport_cm: Any | None = None
         self._transport_exit: Any | None = None
         self._session_cm: ClientSession | None = None
@@ -59,7 +62,7 @@ class MCPClient:
                     args=self.command_args,
                     env=self.env,
                 )
-                self._transport_cm = stdio_client(server)
+                self._transport_cm = stdio_client(server, errlog=self.errlog)
             else:
                 if not self.url:
                     raise MCPClientError("MCPwn is unreachable: SSE transport requires --url")
@@ -78,7 +81,15 @@ class MCPClient:
         except FileNotFoundError as exc:
             await self.disconnect()
             raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
-        except (httpx.HTTPError, McpError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
+        except (
+            httpx.HTTPError,
+            McpError,
+            OSError,
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            ExceptionGroup,
+        ) as exc:
             await self.disconnect()
             raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
 
@@ -86,13 +97,13 @@ class MCPClient:
         if self._session_cm is not None:
             try:
                 await self._session_cm.__aexit__(None, None, None)
-            except (McpError, OSError, RuntimeError):
-                pass
+            except (McpError, OSError, RuntimeError, ExceptionGroup) as exc:
+                print(f"MCP session cleanup failed: {exc}", file=self.errlog)
         if self._transport_exit is not None:
             try:
                 await self._transport_exit(None, None, None)
-            except (McpError, OSError, RuntimeError):
-                pass
+            except (McpError, OSError, RuntimeError, ExceptionGroup) as exc:
+                print(f"MCP transport cleanup failed: {exc}", file=self.errlog)
         self._session_cm = None
         self._session = None
         self._transport_cm = None
@@ -122,9 +133,13 @@ class MCPClient:
         except (McpError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
             raise MCPClientError(f"MCPwn is unreachable: {exc}") from exc
         if result.isError:
-            raise MCPClientError(f"MCPwn is unreachable: tool call failed for {name}")
+            details = "\n".join(block.text for block in result.content if hasattr(block, "text"))
+            raise MCPClientError(f"Tool {name} returned an error: {details}")
         if not result.content:
             raise MCPClientError(f"MCPwn is unreachable: empty response for {name}")
+        text_blocks = [block.text for block in result.content if hasattr(block, "text")]
+        if text_blocks:
+            return "\n".join(text_blocks)
         first_block = result.content[0]
         text_value = getattr(first_block, "text", None)
         if isinstance(text_value, str):
