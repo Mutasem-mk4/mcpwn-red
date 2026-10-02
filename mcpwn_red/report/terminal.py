@@ -4,12 +4,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from mcpwn_red import __version__
 from mcpwn_red.attacks.base import ScanReport
 
 
 def print_report(report: ScanReport) -> None:
     console = Console()
-    console.print(Panel(f"mcpwn-red v0.1.0 | {report.assessment_kind}", style="bold cyan"))
+    console.print(Panel(f"mcpwn-red v{__version__} | {report.assessment_kind}", style="bold cyan"))
 
     table = Table(title="Attack Results")
     table.add_column("ID")
