@@ -40,70 +40,21 @@ jobs:
       - name: Run mypy
         run: mypy mcpwn_red
 
-      - name: Run pytest
+      - name: Set up Go for MCPwn integration tests
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+
+      - name: Build pinned MCPwn target
+        run: |
+          git clone https://gitlab.com/parrotsec/project/mcpwn.git "$RUNNER_TEMP/mcpwn-target"
+          cd "$RUNNER_TEMP/mcpwn-target"
+          git checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
+          go build -o "$RUNNER_TEMP/mcpwn-test" ./cmd/mcpwn
+          echo "MCPWN_TEST_COMMAND=$RUNNER_TEMP/mcpwn-test" >> "$GITHUB_ENV"
+
+      - name: Run pytest including real MCPwn configuration tests
         run: pytest
-
-  debian-package:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install Debian build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            debhelper \
-            devscripts \
-            dh-python \
-            equivs \
-            pybuild-plugin-pyproject \
-            python3-all \
-            python3-click \
-            python3-hatchling \
-            python3-httpx \
-            python3-jinja2 \
-            python3-pydantic \
-            python3-rich \
-            python3-setuptools \
-            python3-yaml
-
-      - name: Install CI shim for python3-mcp
-        run: |
-          tmpdir="$(mktemp -d)"
-          cat > "${tmpdir}/python3-mcp-ci.control" <<'EOF'
-          Section: python
-          Priority: optional
-          Standards-Version: 4.6.2
-          Package: python3-mcp
-          Version: 1.0.0
-          Maintainer: GitHub Actions <actions@github.com>
-          Architecture: all
-          Description: dummy MCP SDK package for CI dependency resolution
-           This package exists only to satisfy the mcpwn-red Debian build
-           dependency in CI until python3-mcp is packaged in the archive.
-          EOF
-          (
-            cd "${tmpdir}"
-            equivs-build python3-mcp-ci.control
-          )
-          sudo dpkg -i "${tmpdir}/python3-mcp_1.0.0_all.deb"
-
-      - name: Create upstream orig tarball
-        run: |
-          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
-          tar \
-            --exclude-vcs \
-            --transform "s,^\./,mcpwn-red-${version}/," \
-            -czf "../mcpwn-red_${version}.orig.tar.gz" \
-            .
-
-      - name: Build Debian package
-        run: |
-          chmod +x debian/rules
-          dpkg-buildpackage -us -uc
 
   debian-validation:
     runs-on: ubuntu-latest
@@ -139,7 +90,9 @@ jobs:
             python3-yaml
 
       - name: Clone python3-mcp packaging repository
-        run: git clone --depth 1 https://github.com/Mutasem-mk4/python3-mcp-debian.git ../python3-mcp-debian
+        run: |
+          git clone https://github.com/Mutasem-mk4/python3-mcp-debian.git ../python3-mcp-debian
+          git -C ../python3-mcp-debian checkout 45d116b97a50ff5a8fb3cc0738064b44b81b43a8
 
       - name: Install python3-mcp dependency set
         run: |
@@ -189,8 +142,9 @@ jobs:
 
       - name: Run autopkgtest
         run: |
-          autopkgtest ../python3-mcp_1.27.0-1_all.deb ../mcpwn-red_0.1.0-1_amd64.changes -- null || \
-          status=$?; \
-          if [ "${status}" -ne 8 ]; then
-            exit "${status}"
+          status=0
+          autopkgtest ../python3-mcp_*_all.deb ../mcpwn-red_*.changes -- null || status=$?
+          # These CLI tests are explicitly superficial (autopkgtest status 8).
+          if [ "$status" -ne 0 ] && [ "$status" -ne 8 ]; then
+            exit "$status"
           fi

@@ -1,8 +1,7 @@
 # Acceptance fixture: do not deploy to a live instance.
 tools:
-  - name: env_leak
-    command: /usr/bin/env
-    fixed_args: []
+  - name: command_missing
+    fixed_args: ["{{target}}"]
     docker:
       image: ghcr.io/parrotsec/mcpwn-tools:nmap
-    description: "Dump all environment variables."
+    description: "Tool with no command defined."

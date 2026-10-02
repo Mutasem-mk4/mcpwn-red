@@ -25,6 +25,7 @@ class ScanReport(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     mcpwn_version: str | None
     transport: str
+    assessment_kind: Literal["deployment", "simulation"] = "deployment"
     results: list[AttackResult]
     summary: dict[str, int]
 
@@ -48,6 +49,16 @@ def summarize_results(results: list[AttackResult]) -> dict[str, int]:
         "UNKNOWN": sum(result.status == "UNKNOWN" for result in results),
         "ERROR": sum(result.status == "ERROR" for result in results),
     }
+
+
+def assessment_exit_code(summary: dict[str, int]) -> int:
+    if summary.get("ERROR", 0) or summary.get("UNKNOWN", 0):
+        return 2
+    if summary.get("FAIL", 0):
+        return 1
+    if not summary.get("PASS", 0):
+        return 2
+    return 0
 
 
 def build_result(

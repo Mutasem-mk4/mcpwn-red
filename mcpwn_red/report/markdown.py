@@ -8,6 +8,11 @@ def render_markdown(report: ScanReport) -> str:
         "# mcpwn-red Scan Report",
         f"**Date:** {report.timestamp.isoformat()}  **Transport:** {report.transport}",
         "",
+        f"**Assessment:** {report.assessment_kind}",
+        "Local simulation; no deployment or AI agent assessed."
+        if report.assessment_kind == "simulation"
+        else "Deployment checks.",
+        "",
         "## Summary",
         "| Status | Count |",
         "| --- | ---: |",

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -9,75 +10,40 @@ from mcpwn_red.attacks.yaml_injection import YAML_FIXTURES, YamlInjectionTester
 
 
 @pytest.mark.asyncio
-async def test_bash_exec_fixture_written(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
-) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    fixture = YAML_FIXTURES[0]
-    fixture_path = tmp_tools_dir / fixture.file_name
-    seen = {"exists": False}
+async def test_missing_executable_is_error_not_pass(tmp_path: Path) -> None:
+    results = await YamlInjectionTester(command=str(tmp_path / "missing-mcpwn")).run()
+    assert results
+    assert all(result.status == "ERROR" for result in results)
 
-    async def list_tools_side_effect() -> list[dict[str, str]]:
-        seen["exists"] = fixture_path.exists()
-        return []
 
-    mock_mcp_client.list_tools.side_effect = list_tools_side_effect
-    await tester.run_fixture(mock_mcp_client, fixture)
-    assert seen["exists"] is True
+@pytest.fixture
+def isolated_mcpwn(tmp_path: Path) -> Path:
+    executable = os.environ.get("MCPWN_TEST_COMMAND")
+    if not executable:
+        pytest.skip("Set MCPWN_TEST_COMMAND to run real MCPwn configuration tests")
+    command = tmp_path / Path(executable).name
+    shutil.copy2(executable, command)
+    return command
 
 
 @pytest.mark.asyncio
-async def test_bash_exec_fixture_removed(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
+async def test_real_configuration_rejection_and_acceptance_preserve_user_files(
+    isolated_mcpwn: Path,
 ) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    fixture = YAML_FIXTURES[0]
-    fixture_path = tmp_tools_dir / fixture.file_name
-    await tester.run_fixture(mock_mcp_client, fixture)
-    assert fixture_path.exists() is False
+    user_config = isolated_mcpwn.parent / "mcpwn.yaml"
+    user_config.write_text("private user configuration", encoding="utf-8")
+    results = await YamlInjectionTester(command=str(isolated_mcpwn), timeout=5).run()
+    statuses = {result.id: result.status for result in results}
+    assert statuses == {
+        fixture.attack_id: "PASS" if fixture.name == "command_missing" else "FAIL"
+        for fixture in YAML_FIXTURES
+    }
+    assert user_config.read_text(encoding="utf-8") == "private user configuration"
 
 
 @pytest.mark.asyncio
-async def test_hidden_instruction_fail(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
-) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    fixture = next(item for item in YAML_FIXTURES if item.name == "hidden_instruction")
-    mock_mcp_client.list_tools.return_value = [{"name": "hidden_instruction"}]
-    result = await tester.run_fixture(mock_mcp_client, fixture)
-    assert result.status == "FAIL"
+async def test_non_mcp_executable_is_error_not_rejection(tmp_path: Path) -> None:
+    import sys
 
-
-@pytest.mark.asyncio
-async def test_schema_missing_pass(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
-) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    fixture = next(item for item in YAML_FIXTURES if item.name == "schema_missing")
-    mock_mcp_client.list_tools.return_value = [{"name": "nmap"}]
-    result = await tester.run_fixture(mock_mcp_client, fixture)
-    assert result.status == "PASS"
-
-
-@pytest.mark.asyncio
-async def test_result_has_evidence(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
-) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    results = await tester.run(mock_mcp_client)
-    assert all(isinstance(result.evidence, str) and result.evidence for result in results)
-
-
-@pytest.mark.asyncio
-async def test_all_fixtures_produce_results(
-    mock_mcp_client: AsyncMock,
-    tmp_tools_dir: Path,
-) -> None:
-    tester = YamlInjectionTester(tmp_tools_dir)
-    results = await tester.run(mock_mcp_client)
-    assert len(results) == 8
+    results = await YamlInjectionTester(command=sys.executable, timeout=1).run()
+    assert all(result.status == "ERROR" for result in results)

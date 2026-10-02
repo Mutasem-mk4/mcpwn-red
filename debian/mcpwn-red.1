@@ -42,7 +42,7 @@ summary. The
 .B yaml
 module requires
 .B \-\-confirm-write
-because it writes temporary test fixtures into the MCPwn tools directory.
+because it starts copied MCPwn executables with temporary configurations.
 .TP
 .B list
 Print the bundled attack catalog with attack IDs, modules, severities, and
@@ -74,7 +74,7 @@ Per-request timeout in seconds. The default is 30.
 Run only the selected module.
 .TP
 .B \-\-all
-Run every attack module in a single scan.
+Run YAML, container, and scope deployment checks. Output simulation is separate.
 .TP
 .B \-\-confirm-write
 Allow the YAML module to write temporary malicious tool definitions for testing.
@@ -100,10 +100,20 @@ subcommand. The default is
 .TP
 .BI \-\-output " PATH"
 Write the rendered report to a file instead of standard output.
+.TP
+.BI \-\-mcpwn-command " PATH"
+MCPwn executable used by scan for stdio connections and temporary YAML tests.
+The default is mcpwn.
+.SH EXIT STATUS
+Scan returns 0 for completed checks without findings, 1 for FAIL findings, and
+2 for ERROR, UNKNOWN, or an empty assessment. Incomplete checks take precedence.
+The output module is a local propagation simulation and does not assess a
+deployment or an AI agent. YAML registration alone does not prove execution.
 .SH FILES
 .TP
-.I ~/.config/mcpwn/tools/
-Default MCPwn YAML tool-definition directory exercised by the YAML injection module.
+.I Temporary mcpwn.yaml
+YAML tests create this configuration alongside a copied MCPwn executable before
+startup. Existing user configuration files are not written.
 .TP
 .I ./mcpwn-red-results/results.json
 Default JSON report path written by

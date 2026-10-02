@@ -170,6 +170,7 @@ class OutputInjectionSimulator:
                     "--payload-id",
                     payload.attack_id,
                 ],
+                env={"PYTHONIOENCODING": "utf-8"},
             )
             created_client = True
         try:

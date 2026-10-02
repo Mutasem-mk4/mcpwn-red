@@ -17,7 +17,7 @@ async def test_unknown_when_step_one_tool_missing(mock_mcp_client: AsyncMock) ->
 
 
 @pytest.mark.asyncio
-async def test_pass_when_step_two_is_blocked(mock_mcp_client: AsyncMock) -> None:
+async def test_tool_error_does_not_prove_policy_enforcement(mock_mcp_client: AsyncMock) -> None:
     tester = ScopeEscalationTester()
     mock_mcp_client.call_tool.side_effect = ["scan result", MCPClientError("blocked by policy")]
     result = await tester.run_chain(
@@ -25,7 +25,7 @@ async def test_pass_when_step_two_is_blocked(mock_mcp_client: AsyncMock) -> None
         await mock_mcp_client.list_tools(),
         CHAINS[0],
     )
-    assert result.status == "PASS"
+    assert result.status == "ERROR"
 
 
 @pytest.mark.asyncio
@@ -38,3 +38,12 @@ async def test_fail_when_step_two_executes(mock_mcp_client: AsyncMock) -> None:
         CHAINS[0],
     )
     assert result.status == "FAIL"
+
+
+@pytest.mark.asyncio
+async def test_disconnect_during_step_two_is_error(mock_mcp_client: AsyncMock) -> None:
+    mock_mcp_client.call_tool.side_effect = ["scan result", MCPClientError("connection lost")]
+    result = await ScopeEscalationTester().run_chain(
+        mock_mcp_client, await mock_mcp_client.list_tools(), CHAINS[0]
+    )
+    assert result.status == "ERROR"

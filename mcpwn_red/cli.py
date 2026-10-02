@@ -19,7 +19,7 @@ from mcpwn_red.attacks import (
     ScopeEscalationTester,
     YamlInjectionTester,
 )
-from mcpwn_red.attacks.base import ScanReport, summarize_results
+from mcpwn_red.attacks.base import ScanReport, assessment_exit_code, summarize_results
 from mcpwn_red.mcp_client import MCPClient, MCPClientError
 from mcpwn_red.report import load_json, print_report, render_html, render_markdown, save_json
 
@@ -74,7 +74,7 @@ def main() -> None:
 @main.command()
 @click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio")
 @click.option("--url", type=str)
-@click.option("--timeout", type=int, default=30)
+@click.option("--timeout", type=click.IntRange(min=1), default=30)
 def probe(transport: str, url: str | None, timeout: int) -> None:
     exit_code = asyncio.run(_probe_async(transport=transport, url=url, timeout=timeout))
     raise SystemExit(exit_code)
@@ -101,7 +101,8 @@ async def _probe_async(*, transport: str, url: str | None, timeout: int) -> int:
 @main.command()
 @click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio")
 @click.option("--url", type=str)
-@click.option("--timeout", type=int, default=30)
+@click.option("--timeout", type=click.IntRange(min=1), default=30)
+@click.option("--mcpwn-command", default="mcpwn", help="MCPwn executable for stdio/YAML tests.")
 @click.option(
     "--module",
     "module_name",
@@ -122,6 +123,7 @@ def scan(
     run_all: bool,
     confirm_write: bool,
     output_dir: Path,
+    mcpwn_command: str,
 ) -> None:
     exit_code = asyncio.run(
         _scan_async(
@@ -132,6 +134,7 @@ def scan(
             run_all=run_all,
             confirm_write=confirm_write,
             output_dir=output_dir,
+            mcpwn_command=mcpwn_command,
         )
     )
     raise SystemExit(exit_code)
@@ -146,30 +149,36 @@ async def _scan_async(
     run_all: bool,
     confirm_write: bool,
     output_dir: Path,
+    mcpwn_command: str = "mcpwn",
 ) -> int:
     if run_all == (module_name is not None):
         click.echo("Select exactly one of --all or --module.", err=True)
-        return 1
-    modules = ["yaml", "output", "container", "scope"] if run_all else [str(module_name)]
+        return 2
+    modules = ["yaml", "container", "scope"] if run_all else [str(module_name)]
+    if "yaml" in modules and not confirm_write:
+        click.echo("--confirm-write is required for the yaml module.", err=True)
+        return 2
     results = []
     mcpwn_version: str | None = None
     client = MCPClient(
         transport=cast(Literal["stdio", "sse"], transport),
         url=url,
         timeout=timeout,
+        command=mcpwn_command,
     )
     try:
-        if any(module in {"yaml", "container", "scope"} for module in modules):
+        if any(module in {"container", "scope"} for module in modules):
             await client.connect()
             mcpwn_version = client.server_version
         for module in modules:
             if module == "yaml":
-                if not confirm_write:
-                    click.echo("--confirm-write is required for the yaml module.", err=True)
-                    return 1
-                yaml_tester = YamlInjectionTester(Path.home() / ".config" / "mcpwn" / "tools")
-                results.extend(await yaml_tester.run(client))
+                yaml_tester = YamlInjectionTester(command=mcpwn_command, timeout=timeout)
+                results.extend(await yaml_tester.run())
             elif module == "output":
+                click.echo(
+                    "Output module runs a local payload simulation; it does not assess the target.",
+                    err=True,
+                )
                 output_tester = OutputInjectionSimulator(timeout=timeout)
                 results.extend(await output_tester.run())
             elif module == "container":
@@ -180,7 +189,7 @@ async def _scan_async(
                 results.extend(await scope_tester.run(client))
     except MCPClientError as exc:
         click.echo(str(exc), err=True)
-        return 1
+        return 2
     finally:
         await client.disconnect()
 
@@ -188,13 +197,14 @@ async def _scan_async(
         version=__version__,
         mcpwn_version=mcpwn_version,
         transport=transport,
+        assessment_kind="simulation" if module_name == "output" else "deployment",
         results=results,
         summary=summarize_results(results),
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     save_json(report, output_dir / "results.json")
     print_report(report)
-    return report.summary.get("FAIL", 0)
+    return assessment_exit_code(report.summary)
 
 
 @main.command(name="list")
@@ -236,9 +246,7 @@ def list_command() -> None:
 def report(input_path: Path, report_format: str, output_path: Path | None) -> None:
     report_obj = load_json(input_path)
     rendered = (
-        render_markdown(report_obj)
-        if report_format == "markdown"
-        else render_html(report_obj)
+        render_markdown(report_obj) if report_format == "markdown" else render_html(report_obj)
     )
     if output_path is None:
         click.echo(rendered)

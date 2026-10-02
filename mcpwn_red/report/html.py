@@ -35,6 +35,10 @@ def render_html(report: ScanReport) -> str:
         <div>
           <h1 class="h3 mb-1">mcpwn-red Scan Report</h1>
           <div class="text-muted">{{ report.timestamp.isoformat() }}</div>
+          <div>Assessment: {{ report.assessment_kind }}</div>
+          {% if report.assessment_kind == "simulation" %}
+          <p>Local payload propagation simulation; no deployment or AI agent assessed.</p>
+          {% endif %}
         </div>
         <span class="badge text-bg-dark">{{ report.transport }}</span>
       </div>
@@ -111,6 +115,7 @@ def render_html(report: ScanReport) -> str:
     ></script>
   </body>
 </html>
-        """
+        """,
+        autoescape=True,
     )
-    return template.render(report=report)
+    return str(template.render(report=report))
