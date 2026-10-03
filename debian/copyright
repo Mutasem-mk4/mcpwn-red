@@ -1,21 +1,9 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: mcpwn-red
+Upstream-Contact: Mutasem Kharma <kharma.mutasem@gmail.com>
 Source: https://github.com/Mutasem-mk4/mcpwn-red
 
-Files:
- .github/workflows/*
- CONTRIBUTING.md
- LICENSE
- README.md
- pyproject.toml
- setup.py
- debian/*
- debian/source/*
- fixtures/malicious_tools/*
- mcpwn_red/*
- mcpwn_red/attacks/*
- mcpwn_red/report/*
- tests/*
+Files: *
 Copyright: 2026 Mutasem Kharma
 License: GPL-3
 
