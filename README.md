@@ -36,7 +36,7 @@ Install and configure [MCPwn](https://gitlab.com/parrotsec/project/mcpwn) first,
 
 ## 🔍 Why mcpwn-red?
 
-MCPwn accepts operator-defined tools. This project probes registration behavior and inspects tool metadata for risky configuration patterns; its output needs an explicit operator policy and review.
+MCPwn accepts operator-defined tools. This project checks registration behavior and calls selected deployment tools with test inputs; its output needs an explicit operator policy and review.
 
 A registered shell command or a tool available through MCP is not, by itself, evidence of unauthorized access, a container escape, or successful prompt injection. Local output tests are simulations, not tests of a deployed language model's behavior.
 
@@ -44,8 +44,8 @@ A registered shell command or a tool available through MCP is not, by itself, ev
 
 * **YAML:** Submits fixture tool definitions and records registration or rejection.
 * **Output:** Simulates propagation of hostile output through a local mock client.
-* **Container:** Inspects available tool metadata for container-related risk patterns.
-* **Scope:** Inspects tool availability and metadata for scope-related risk patterns.
+* **Container:** Calls available deployment tools with boundary probes and records their responses.
+* **Scope:** Calls selected tools in two-step test chains and records responses or refusals.
 
 These checks do not certify deployment security or isolation. Review findings against your intended trust boundaries before acting on them.
 
@@ -55,7 +55,7 @@ These checks do not certify deployment security or isolation. Review findings ag
 
 - **Protocol Native:** Built on the official `mcp>=1.0,<2` SDK.
 - **Visual Reports:** Professional terminal tables, Markdown, and HTML report generation.
-- **Safety First:** Destructive write tests are gated behind `--confirm-write`.
+- **Temporary YAML configurations:** `--confirm-write` acknowledges local fixture creation. Container and scope modules call the deployment's tools independently of this flag; run them in an authorized test environment.
 - **Packaging:** Debian source packaging is included; archive acceptance requires maintainer review.
 
 ---
