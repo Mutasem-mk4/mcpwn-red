@@ -1,0 +1,49 @@
+Source: mcpwn-red
+Section: python
+Priority: optional
+Maintainer: Mutasem Kharma <kharma.mutasem@gmail.com>
+Homepage: https://github.com/Mutasem-mk4/mcpwn-red
+Vcs-Git: https://github.com/Mutasem-mk4/mcpwn-red.git
+Vcs-Browser: https://github.com/Mutasem-mk4/mcpwn-red
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-python,
+ pybuild-plugin-pyproject,
+ python3-all,
+ python3-click,
+ python3-hatchling,
+ python3-httpx,
+ python3-jinja2,
+ python3-mcp (>= 1.0),
+ python3-mcp (<< 2),
+ python3-pydantic,
+ python3-pytest <!nocheck>,
+ python3-pytest-asyncio <!nocheck>,
+ python3-respx <!nocheck>,
+ python3-rich,
+ python3-setuptools,
+ python3-yaml
+
+Package: mcpwn-red
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ python3-click,
+ python3-httpx,
+ python3-jinja2,
+ python3-mcp (>= 1.0),
+ python3-mcp (<< 2),
+ python3-pydantic,
+ python3-rich,
+ python3-yaml
+Description: policy-based assessment client for MCPwn deployments
+ mcpwn-red records deployment probe observations and assesses an explicit
+ operator allow/deny policy, exporting evidence and incomplete coverage.
+ YAML probes observe tool registration rather than command execution.
+ Tool response text alone does not establish execution or isolation failure.
+ .
+ Undeclared policy rules and inconclusive observations remain UNKNOWN.
+ This tool does not certify deployment safety.
