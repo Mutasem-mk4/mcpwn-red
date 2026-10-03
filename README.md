@@ -116,3 +116,11 @@ does not assess an MCPwn deployment or an AI agent. Its JSON report contains
 Scan exits 0 for completed checks without findings, 1 for FAIL findings, and
 2 for ERROR, UNKNOWN, or an empty assessment. Incomplete checks take precedence
 over findings. Inspect `results.json` before using a scan as an automated gate.
+
+Terminal, Markdown, and HTML reports display the reason and recommendation for
+incomplete checks. For a missing tool, run `mcpwn-red probe --transport stdio`
+(or `--transport sse --url` with your endpoint) to inspect the exposed tool list.
+Verify the selected server and configuration. If the capability is outside the
+deployment's intended scope, record that coverage limitation rather than adding
+powerful tools just to turn an UNKNOWN result into a completed test. Rerun only
+the relevant module in your authorized test environment after resolving the cause.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from mcpwn_red import __version__
 from mcpwn_red.attacks.base import ScanReport
@@ -41,6 +42,23 @@ def print_report(report: ScanReport) -> None:
         f"ERROR: {report.summary.get('ERROR', 0)}",
     ]
     console.print(Panel("\n".join(summary_lines), title="Summary"))
+
+    if any(result.module == "yaml" for result in report.results):
+        console.print("YAML checks assess tool registration only; no fixture command is executed.")
+    for result in report.results:
+        if result.status in {"UNKNOWN", "ERROR"}:
+            console.print(
+                Panel(
+                    Text(f"Reason: {result.evidence}\nRecommendation: {result.recommendation}"),
+                    title=Text(f"{result.id}: {result.status} — check incomplete"),
+                )
+            )
+    if report.summary.get("UNKNOWN", 0) or report.summary.get("ERROR", 0):
+        console.print(
+            "Assessment incomplete (exit 2). Inspect the reasons and verify the server's "
+            "available tools with probe before rerunning the relevant module. "
+            "A missing capability is not proof that the deployment is safe."
+        )
 
     fail_count = report.summary.get("FAIL", 0)
     if fail_count and report.assessment_kind == "deployment":

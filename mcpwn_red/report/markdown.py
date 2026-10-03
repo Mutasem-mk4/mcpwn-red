@@ -21,6 +21,25 @@ def render_markdown(report: ScanReport) -> str:
         lines.append(f"| {status} | {report.summary.get(status, 0)} |")
 
     lines.append("")
+    if any(result.module == "yaml" for result in report.results):
+        lines.append("YAML checks assess tool registration only; no fixture command is executed.")
+        lines.append("")
+    incomplete = [result for result in report.results if result.status in {"UNKNOWN", "ERROR"}]
+    if incomplete:
+        lines.extend([
+            "## Incomplete Checks",
+            "Assessment incomplete (exit 2). Inspect each reason and use probe to verify "
+            "available tools before rerunning the relevant module. Missing capabilities "
+            "are not evidence that the deployment is safe.",
+            "",
+        ])
+        for result in incomplete:
+            lines.extend([
+                f"### [{result.status}] {result.id}: {result.name}",
+                f"**Reason:** {result.evidence}",
+                f"**Recommendation:** {result.recommendation}",
+                "",
+            ])
     lines.append("## Findings")
     fail_results = [result for result in report.results if result.status == "FAIL"]
     if not fail_results:

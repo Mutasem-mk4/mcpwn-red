@@ -56,6 +56,15 @@ def render_html(report: ScanReport) -> str:
         {% endfor %}
       </div>
 
+      {% if report.summary.get("UNKNOWN", 0) or report.summary.get("ERROR", 0) %}
+      <p role="status">Assessment incomplete (exit 2). Inspect each reason and use probe
+        to verify available tools before rerunning the relevant module. Missing
+        capabilities are not evidence that the deployment is safe.</p>
+      {% endif %}
+      {% if report.results | selectattr("module", "equalto", "yaml") | list %}
+      <p>YAML checks assess tool registration only; no fixture command is executed.</p>
+      {% endif %}
+
       <div class="card shadow-sm">
         <div class="card-header">Results</div>
         <div class="table-responsive">
