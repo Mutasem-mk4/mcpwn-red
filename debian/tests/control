@@ -12,3 +12,7 @@ Test-Command:
  mcpwn-red --help >/dev/null 2>/dev/null &&
  mcpwn-red list >/dev/null 2>/dev/null
 Restrictions: superficial
+
+Tests: policy-assessment
+Depends: @, python3
+Restrictions: allow-stderr

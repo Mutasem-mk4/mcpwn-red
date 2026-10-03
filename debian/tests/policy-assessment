@@ -1,0 +1,88 @@
+#!/usr/bin/python3
+"""Exercise the installed CLI with real SDK transport and disposable file fixtures."""
+
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import tempfile
+
+import mcpwn_red
+
+assert Path(mcpwn_red.__file__).resolve().is_relative_to(
+    Path('/usr/lib/python3/dist-packages')
+), 'The test must use the installed Debian package'
+server = Path('tests/fixtures/boundary_server.py').resolve()
+assert server.is_file()
+
+
+def run(*arguments, cwd, expected):
+    result = subprocess.run(
+        ['mcpwn-red', *map(str, arguments)], cwd=cwd, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60,
+    )
+    assert result.returncode == expected, (arguments, result.stdout, result.stderr)
+    return result
+
+
+with tempfile.TemporaryDirectory(dir=os.environ.get('AUTOPKGTEST_TMP')) as directory:
+    root = Path(directory)
+    (root / 'inside/work').mkdir(parents=True)
+    (root / 'etc').mkdir()
+    evidence = 'root:x:0:0:debian-fixture-only'
+    (root / 'etc/passwd').write_text(evidence)
+    for mode, action, expected in [
+        ('restricted', 'deny', 'PASS'),
+        ('permissive', 'deny', 'FAIL'),
+        ('permissive', 'allow', 'PASS'),
+        ('permissive', None, 'UNKNOWN'),
+    ]:
+        command = root / 'fixture-server'
+        command.write_text(
+            '#!/bin/sh\nexec /usr/bin/python3 ' + ' '.join(
+                shlex.quote(str(arg)) for arg in [server, root, mode]
+            ) + '\n'
+        )
+        command.chmod(0o755)
+        destination = root / f'{mode}-{action}'
+        arguments = ['scan', '--module', 'container', '--mcpwn-command', command,
+                     '--output-dir', destination]
+        if action:
+            policy = root / 'policy.json'
+            policy.write_text(json.dumps({'name': 'Package policy', 'checks': {
+                'CHECK-01': {'action': action}
+            }}))
+            arguments.extend(['--policy', policy])
+        # Other unavailable or undeclared checks keep the assessment incomplete.
+        run(*arguments, cwd=root, expected=2)
+        report = json.loads((destination / 'results.json').read_text())
+        result = next(r for r in report['results'] if r['id'] == 'CHECK-01')
+        assert result['status'] == expected and result['evidence_kind'] == 'tool_response'
+        assert result['probe_status'] == ('PASS' if mode == 'restricted' else 'FAIL')
+        assert result['policy_action'] == action
+        if mode == 'permissive':
+            assert result['evidence'] == evidence
+        if action:
+            assert report['policy']['checks']['CHECK-01']['action'] == action
+        else:
+            assert all(r['status'] == 'UNKNOWN' for r in report['results'])
+        html = destination / 'export.html'
+        run('report', '--input', destination / 'results.json', '--format', 'html',
+            '--output', html, cwd=root, expected=0)
+        assert expected in html.read_text()
+        if action:
+            assert 'Package policy' in html.read_text()
+        if mode == 'permissive':
+            assert evidence in html.read_text()
+        print(mode, action, expected, 'installed CLI/report passed')
+
+    invalid = root / 'invalid.json'
+    invalid.write_text('{')
+    destination = root / 'invalid-assessment'
+    result = run('scan', '--module', 'container', '--policy', invalid,
+                 '--mcpwn-command', root / 'nonexistent-server', '--output-dir', destination,
+                 cwd=root, expected=2)
+    assert not destination.exists() and 'Traceback' not in result.stderr
+    assert 'Invalid value' in result.stderr
+    print('Invalid policy refused before assessment output')

@@ -134,6 +134,7 @@ jobs:
 
       - name: Build Debian package
         run: |
+          apt-get build-dep -y .
           chmod +x debian/rules
           dpkg-buildpackage -us -uc
 

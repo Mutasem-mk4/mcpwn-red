@@ -1,3 +1,11 @@
+mcpwn-red (0.2.0-2) unstable; urgency=medium
+
+  * Run upstream pytest against pybuild output during Debian builds.
+  * Assess installed policy and report behavior through real SDK fixtures.
+  * Correct package scope and maintainer contact metadata.
+
+ -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sun, 04 Oct 2026 12:30:00 +0300
+
 mcpwn-red (0.2.0-1) unstable; urgency=medium
 
   * Evaluate deployment probes against an explicit operator policy.

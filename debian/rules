@@ -1,7 +1,6 @@
 #!/usr/bin/make -f
 
+export PYBUILD_TEST_PYTEST = 1
+
 %:
 	dh $@ --buildsystem=pybuild --with python3
-
-override_dh_auto_test:
-	:
