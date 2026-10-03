@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as metadata_version
 from pathlib import Path
@@ -100,6 +101,19 @@ async def _probe_async(*, transport: str, url: str | None, timeout: int) -> int:
     return 0
 
 
+@dataclass(frozen=True)
+class ScanOptions:
+    transport: str
+    url: str | None
+    timeout: int
+    module_name: str | None
+    run_all: bool
+    confirm_write: bool
+    output_dir: Path
+    mcpwn_command: str
+    policy: AssessmentPolicy | None
+
+
 @main.command()
 @click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio")
 @click.option("--url", type=str)
@@ -137,32 +151,32 @@ def scan(
     policy = _load_policy(policy_path)
     exit_code = asyncio.run(
         _scan_async(
-            transport=transport,
-            url=url,
-            timeout=timeout,
-            module_name=module_name,
-            run_all=run_all,
-            confirm_write=confirm_write,
-            output_dir=output_dir,
-            mcpwn_command=mcpwn_command,
-            policy=policy,
+            ScanOptions(
+                transport=transport,
+                url=url,
+                timeout=timeout,
+                module_name=module_name,
+                run_all=run_all,
+                confirm_write=confirm_write,
+                output_dir=output_dir,
+                mcpwn_command=mcpwn_command,
+                policy=policy,
+            )
         )
     )
     raise SystemExit(exit_code)
 
 
-async def _scan_async(
-    *,
-    transport: str,
-    url: str | None,
-    timeout: int,
-    module_name: str | None,
-    run_all: bool,
-    confirm_write: bool,
-    output_dir: Path,
-    mcpwn_command: str = "mcpwn",
-    policy: AssessmentPolicy | None = None,
-) -> int:
+async def _scan_async(options: ScanOptions) -> int:
+    transport = options.transport
+    url = options.url
+    timeout = options.timeout
+    module_name = options.module_name
+    run_all = options.run_all
+    confirm_write = options.confirm_write
+    output_dir = options.output_dir
+    mcpwn_command = options.mcpwn_command
+    policy = options.policy
     if run_all == (module_name is not None):
         click.echo("Select exactly one of --all or --module.", err=True)
         return 2
