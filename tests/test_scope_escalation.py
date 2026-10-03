@@ -29,7 +29,7 @@ async def test_tool_error_does_not_prove_policy_enforcement(mock_mcp_client: Asy
 
 
 @pytest.mark.asyncio
-async def test_fail_when_step_two_executes(mock_mcp_client: AsyncMock) -> None:
+async def test_success_text_does_not_prove_step_two_execution(mock_mcp_client: AsyncMock) -> None:
     tester = ScopeEscalationTester()
     mock_mcp_client.call_tool.side_effect = ["scan result", "step 2 executed"]
     result = await tester.run_chain(
@@ -37,7 +37,7 @@ async def test_fail_when_step_two_executes(mock_mcp_client: AsyncMock) -> None:
         await mock_mcp_client.list_tools(),
         CHAINS[0],
     )
-    assert result.status == "FAIL"
+    assert result.status == "UNKNOWN"
 
 
 @pytest.mark.asyncio

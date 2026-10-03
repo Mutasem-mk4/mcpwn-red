@@ -36,6 +36,8 @@ def render_html(report: ScanReport) -> str:
           <h1 class="h3 mb-1">mcpwn-red Scan Report</h1>
           <div class="text-muted">{{ report.timestamp.isoformat() }}</div>
           <div>Assessment: {{ report.assessment_kind }}</div>
+          <div>Policy: {{ report.policy.name if report.policy else 'none recorded' }}</div>
+          <p>Probe evidence does not establish exploitation or complete isolation.</p>
           {% if report.assessment_kind == "simulation" %}
           <p>Local payload propagation simulation; no deployment or AI agent assessed.</p>
           {% endif %}
@@ -76,6 +78,8 @@ def render_html(report: ScanReport) -> str:
                 <th>Name</th>
                 <th>Status</th>
                 <th>Severity</th>
+                <th>Probe / rule</th>
+                <th>Evidence kind</th>
                 <th>Evidence</th>
               </tr>
             </thead>
@@ -97,6 +101,8 @@ def render_html(report: ScanReport) -> str:
                   {% endif %}
                 </td>
                 <td>{{ result.severity }}</td>
+                <td>{{ result.probe_status or '-' }} / {{ result.policy_action or '-' }}</td>
+                <td>{{ result.evidence_kind or 'unrecorded' }}</td>
                 <td>
                   <button
                     class="btn btn-sm btn-outline-secondary no-print"

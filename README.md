@@ -27,7 +27,7 @@ pip install .
 mcpwn-red probe --transport stdio
 
 # Run deployment checks (YAML launches temporary MCPwn instances)
-mcpwn-red scan --all --transport stdio --confirm-write
+mcpwn-red scan --all --transport stdio --confirm-write --policy examples/yaml-deny.json
 ```
 
 Install and configure [MCPwn](https://gitlab.com/parrotsec/project/mcpwn) first, and make its `mcpwn` executable available on `PATH` for the stdio probe. Installing `mcpwn-red` does not install MCPwn. If the executable is elsewhere, `scan` accepts `--mcpwn-command /path/to/mcpwn`; `probe` uses `mcpwn` from `PATH`. On Debian/Ubuntu, install `python3-venv` if creating the environment fails.
@@ -98,8 +98,9 @@ startup. They list tools without executing fixture commands. A baseline must
 register the control tool before a rejection can count as PASS. Existing user
 configuration files are not written.
 
-A registered risky definition is FAIL; registration alone does not prove execution,
-unauthorized configuration access, or a prompt injection exploit. An absent tool
+A registered definition is an observation. With an explicit deny rule it is FAIL;
+with an allow rule it is PASS. Without a rule it is UNKNOWN. None of these statuses
+proves execution, unauthorized configuration access or a prompt injection exploit. An absent tool
 without explicit configuration rejection is UNKNOWN. Server/transport errors are
 ERROR, never proof of policy enforcement.
 
@@ -124,3 +125,50 @@ Verify the selected server and configuration. If the capability is outside the
 deployment's intended scope, record that coverage limitation rather than adding
 powerful tools just to turn an UNKNOWN result into a completed test. Rerun only
 the relevant module in your authorized test environment after resolving the cause.
+
+## Explicit assessment policy (0.2.0)
+
+Deployment scans require a declared rule before a completed probe can become a
+policy judgment. `--policy` reads JSON; missing rules produce UNKNOWN, not FAIL
+or PASS. A malformed policy, unknown check ID or unsupported field fails before
+starting a server. The policy is recorded in `results.json`.
+
+```json
+{
+  "name": "Restricted tool registration",
+  "checks": {
+    "YAML-01": {"action": "deny", "severity": "medium"}
+  }
+}
+```
+
+`deny` prohibits the condition the probe is looking for. A matched condition is
+FAIL; a probe indicating rejection or absence is PASS for that specific check.
+`allow` permits a matched condition, which becomes PASS. If it is not observed,
+the result is UNKNOWN: permission does not imply that the capability is present.
+Severity comes from the rule; undeclared checks use low severity. UNKNOWN and
+ERROR remain incomplete regardless of the rule and retain exit 2.
+
+The example policies `examples/yaml-allow.json` and `examples/yaml-deny.json`
+deliberately differ over trusted operator-defined registrations. Both deny a
+missing required command. They are examples, not recommended security policies.
+They contain no container/scope rules, so `--all` still reports those checks as
+UNKNOWN unless suitable rules and evidence are supplied.
+
+```bash
+mcpwn-red scan --module yaml --confirm-write --policy examples/yaml-allow.json
+mcpwn-red scan --module yaml --confirm-write --policy examples/yaml-deny.json
+```
+
+`probe_status` preserves the original check classifier: FAIL means its candidate
+condition matched, PASS means its rejection/absence test matched, and UNKNOWN or
+ERROR means it could not decide. This is not an exploit verdict. `policy_action`
+records the applicable rule, and `evidence_kind` distinguishes registration from
+tool-response evidence. Reports display those fields beside the policy judgment.
+Tool-response checks use textual indicators; they do not establish a container
+escape or the provenance of returned content. Scope replies claiming successful
+execution remain UNKNOWN because reply text alone does not verify the action.
+
+The output module remains a separate local simulation; `--policy` is rejected
+for it. Previously saved reports load without policy metadata, but their old
+statuses must be read as historical probe classifications, not policy judgments.

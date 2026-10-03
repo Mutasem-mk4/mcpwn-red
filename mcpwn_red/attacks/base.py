@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from mcpwn_red.policy import AssessmentPolicy
+
 
 class AttackResult(BaseModel):
     id: str
@@ -17,6 +19,9 @@ class AttackResult(BaseModel):
     evidence: str
     duration_ms: int
     recommendation: str
+    probe_status: Literal["PASS", "FAIL", "UNKNOWN", "ERROR"] | None = None
+    policy_action: Literal["allow", "deny"] | None = None
+    evidence_kind: Literal["registration", "tool_response", "simulation"] | None = None
 
 
 class ScanReport(BaseModel):
@@ -26,6 +31,7 @@ class ScanReport(BaseModel):
     mcpwn_version: str | None
     transport: str
     assessment_kind: Literal["deployment", "simulation"] = "deployment"
+    policy: AssessmentPolicy | None = None
     results: list[AttackResult]
     summary: dict[str, int]
 

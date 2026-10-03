@@ -9,6 +9,8 @@ def render_markdown(report: ScanReport) -> str:
         f"**Date:** {report.timestamp.isoformat()}  **Transport:** {report.transport}",
         "",
         f"**Assessment:** {report.assessment_kind}",
+        f"**Policy:** {report.policy.name if report.policy else 'none recorded'}",
+        "Probe evidence does not establish exploitation or complete isolation.",
         "Local simulation; no deployment or AI agent assessed."
         if report.assessment_kind == "simulation"
         else "Deployment checks.",
@@ -57,13 +59,14 @@ def render_markdown(report: ScanReport) -> str:
     lines.extend(
         [
             "## All Results",
-            "| ID | Module | Name | Status | Severity |",
-            "| --- | --- | --- | --- | --- |",
+            "| ID | Module | Name | Status | Severity | Probe / rule | Evidence kind |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for result in report.results:
         lines.append(
             f"| {result.id} | {result.module} | {result.name} | "
-            f"{result.status} | {result.severity} |"
+            f"{result.status} | {result.severity} | {result.probe_status or '-'} / "
+            f"{result.policy_action or '-'} | {result.evidence_kind or 'unrecorded'} |"
         )
     return "\n".join(lines)

@@ -1,4 +1,4 @@
-.TH MCPWN-RED 1 "April 2026" "mcpwn-red 0.1.0" "User Commands"
+.TH MCPWN-RED 1 "October 2026" "mcpwn-red 0.2.0" "User Commands"
 .SH NAME
 mcpwn-red \- adversarial safety harness for the MCPwn AI pentesting execution engine
 .SH SYNOPSIS
@@ -15,16 +15,16 @@ mcpwn-red \- adversarial safety harness for the MCPwn AI pentesting execution en
 .B mcpwn-red
 \fBscan\fR [\fB\-\-transport\fR \fIstdio|sse\fR] [\fB\-\-url\fR \fIURL\fR] [\fB\-\-timeout\fR \fISECONDS\fR]
 [\fB\-\-module\fR \fIyaml|output|container|scope\fR | \fB\-\-all\fR]
-[\fB\-\-confirm-write\fR] [\fB\-\-output-dir\fR \fIPATH\fR]
+[\fB\-\-confirm-write\fR] [\fB\-\-policy\fR \fIPATH\fR] [\fB\-\-output-dir\fR \fIPATH\fR]
 .br
 .B mcpwn-red
 \fBreport\fR \fB\-\-input\fR \fIPATH\fR [\fB\-\-format\fR \fImarkdown|html\fR] [\fB\-\-output\fR \fIPATH\fR]
 .SH DESCRIPTION
 .B mcpwn-red
-validates the operator safety of Parrot OS MCPwn deployments before they are
-used in client engagements. It checks for YAML tool-definition poisoning,
-prompt-injection propagation through tool output, container isolation failures,
-and unsafe scope escalation across supported MCPwn tools.
+records MCPwn registration and tool-response probes and evaluates them against
+an explicit operator policy. Deployment probes do not establish exploitation
+or complete isolation. The output module is a separate local simulation, not
+an assessment of a deployed AI agent.
 .PP
 The program prints an ethical-use notice on every invocation and is intended
 only for authorized testing against MCPwn instances controlled by the operator
@@ -104,6 +104,12 @@ Write the rendered report to a file instead of standard output.
 .BI \-\-mcpwn-command " PATH"
 MCPwn executable used by scan for stdio connections and temporary YAML tests.
 The default is mcpwn.
+.TP
+.BI \-\-policy " PATH"
+JSON operator policy with a name and checks keyed by catalog ID. Each rule has
+action allow or deny and optional severity (default medium). Missing rules
+produce UNKNOWN. Invalid policy files fail before server startup. The policy
+is saved in the JSON report. This option is for deployment checks only.
 .SH EXIT STATUS
 Scan returns 0 for completed checks without findings, 1 for FAIL findings, and
 2 for ERROR, UNKNOWN, or an empty assessment. Incomplete checks take precedence.
@@ -130,3 +136,11 @@ project.
 .SH LICENSE
 GPL version 3. On Debian systems, the complete license text is available in
 .IR /usr/share/common-licenses/GPL-3 .
+
+.SH ASSESSMENT LIMITS
+YAML fixtures test registration without executing their commands. A policy
+judgment does not prove exploitation. Container and scope checks call tools;
+tool-response text does not establish a container escape or completed action.
+UNKNOWN and ERROR remain incomplete. Scan without a policy records observations
+with UNKNOWN judgments. Example allow and deny policies are in the source
+examples directory; they are not recommended production policies.

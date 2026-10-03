@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 import click
+from pydantic import ValidationError
 from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
@@ -21,6 +22,7 @@ from mcpwn_red.attacks import (
 )
 from mcpwn_red.attacks.base import ScanReport, assessment_exit_code, summarize_results
 from mcpwn_red.mcp_client import MCPClient, MCPClientError
+from mcpwn_red.policy import AssessmentPolicy, evaluate_policy
 from mcpwn_red.report import load_json, print_report, render_html, render_markdown, save_json
 
 BANNER = r"""
@@ -111,6 +113,12 @@ async def _probe_async(*, transport: str, url: str | None, timeout: int) -> int:
 @click.option("--all", "run_all", is_flag=True)
 @click.option("--confirm-write", is_flag=True)
 @click.option(
+    "--policy",
+    "policy_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    help="JSON policy declaring allow/deny rules by check ID.",
+)
+@click.option(
     "--output-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
     default=Path("./mcpwn-red-results"),
@@ -124,7 +132,9 @@ def scan(
     confirm_write: bool,
     output_dir: Path,
     mcpwn_command: str,
+    policy_path: Path | None,
 ) -> None:
+    policy = _load_policy(policy_path)
     exit_code = asyncio.run(
         _scan_async(
             transport=transport,
@@ -135,6 +145,7 @@ def scan(
             confirm_write=confirm_write,
             output_dir=output_dir,
             mcpwn_command=mcpwn_command,
+            policy=policy,
         )
     )
     raise SystemExit(exit_code)
@@ -150,9 +161,15 @@ async def _scan_async(
     confirm_write: bool,
     output_dir: Path,
     mcpwn_command: str = "mcpwn",
+    policy: AssessmentPolicy | None = None,
 ) -> int:
     if run_all == (module_name is not None):
         click.echo("Select exactly one of --all or --module.", err=True)
+        return 2
+    if module_name == "output" and policy is not None:
+        click.echo(
+            "--policy applies to deployment checks, not the local output simulation.", err=True
+        )
         return 2
     modules = ["yaml", "container", "scope"] if run_all else [str(module_name)]
     if "yaml" in modules and not confirm_write:
@@ -193,11 +210,14 @@ async def _scan_async(
     finally:
         await client.disconnect()
 
+    if module_name != "output":
+        results = [evaluate_policy(probe, policy) for probe in results]
     report = ScanReport(
         version=__version__,
         mcpwn_version=mcpwn_version,
         transport=transport,
         assessment_kind="simulation" if module_name == "output" else "deployment",
+        policy=policy,
         results=results,
         summary=summarize_results(results),
     )
@@ -205,6 +225,26 @@ async def _scan_async(
     save_json(report, output_dir / "results.json")
     print_report(report)
     return assessment_exit_code(report.summary)
+
+
+def _load_policy(path: Path | None) -> AssessmentPolicy | None:
+    if path is None:
+        return None
+    try:
+        policy = AssessmentPolicy.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValidationError) as exc:
+        raise click.BadParameter(str(exc), param_hint="--policy") from exc
+    known = {
+        row["id"]
+        for tester in (YamlInjectionTester, ContainerBoundaryChecker, ScopeEscalationTester)
+        for row in tester.catalog()
+    }
+    unknown = policy.checks.keys() - known
+    if unknown:
+        raise click.BadParameter(
+            f"Unknown check IDs: {', '.join(sorted(unknown))}", param_hint="--policy"
+        )
+    return policy
 
 
 @main.command(name="list")

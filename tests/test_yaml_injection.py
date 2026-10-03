@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from mcpwn_red.attacks.yaml_injection import YAML_FIXTURES, YamlInjectionTester
+from mcpwn_red.policy import AssessmentPolicy, PolicyRule, evaluate_policy
 
 
 @pytest.mark.asyncio
@@ -39,6 +40,22 @@ async def test_real_configuration_rejection_and_acceptance_preserve_user_files(
         for fixture in YAML_FIXTURES
     }
     assert user_config.read_text(encoding="utf-8") == "private user configuration"
+    allowed = AssessmentPolicy(
+        name="Trusted operator definitions",
+        checks={
+            fixture.attack_id: PolicyRule(
+                action="deny" if fixture.name == "command_missing" else "allow"
+            )
+            for fixture in YAML_FIXTURES
+        },
+    )
+    denied = AssessmentPolicy(
+        name="Restricted definitions",
+        checks={fixture.attack_id: PolicyRule(action="deny") for fixture in YAML_FIXTURES},
+    )
+    assert all(evaluate_policy(probe, allowed).status == "PASS" for probe in results)
+    assert evaluate_policy(results[0], denied).status == "FAIL"
+    assert all(evaluate_policy(probe, None).status == "UNKNOWN" for probe in results)
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpwn-red"
-version = "0.1.1"
+version = "0.2.0"
 description = "Adversarial safety harness for the MCPwn AI pentesting execution engine"
 readme = "README.md"
 requires-python = ">=3.11"

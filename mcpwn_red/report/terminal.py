@@ -12,6 +12,11 @@ from mcpwn_red.attacks.base import ScanReport
 def print_report(report: ScanReport) -> None:
     console = Console()
     console.print(Panel(f"mcpwn-red v{__version__} | {report.assessment_kind}", style="bold cyan"))
+    if report.assessment_kind == "deployment":
+        console.print(Text(f"Policy: {report.policy.name if report.policy else 'none recorded'}"))
+        console.print(
+            "Results concern declared policy and probe evidence; they do not prove exploitation."
+        )
 
     table = Table(title="Attack Results")
     table.add_column("ID")
@@ -19,6 +24,7 @@ def print_report(report: ScanReport) -> None:
     table.add_column("Name")
     table.add_column("Status")
     table.add_column("Severity")
+    table.add_column("Probe / rule")
     status_styles = {
         "PASS": "green",
         "FAIL": "red",
@@ -32,6 +38,7 @@ def print_report(report: ScanReport) -> None:
             result.name,
             f"[{status_styles[result.status]}]{result.status}[/{status_styles[result.status]}]",
             result.severity,
+            f"{result.probe_status or '-'} / {result.policy_action or '-'}",
         )
     console.print(table)
 
@@ -64,7 +71,7 @@ def print_report(report: ScanReport) -> None:
     if fail_count and report.assessment_kind == "deployment":
         console.print(
             Panel(
-                f"{fail_count} failing security checks require remediation.",
+                f"{fail_count} checks disagree with the declared policy. Review the evidence.",
                 title="Warning",
                 style="bold red",
             )

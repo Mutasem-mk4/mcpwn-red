@@ -1,0 +1,37 @@
+{
+  "name": "Example deny YAML registration",
+  "checks": {
+    "YAML-01": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-02": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-03": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-04": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-05": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-06": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-07": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-08": {
+      "action": "deny",
+      "severity": "medium"
+    }
+  }
+}
