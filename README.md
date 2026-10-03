@@ -17,6 +17,10 @@
 
 ```bash
 # Install from source
+git clone https://github.com/Mutasem-mk4/mcpwn-red.git
+cd mcpwn-red
+python3 -m venv .venv
+. .venv/bin/activate
 pip install .
 
 # Probe reachability
@@ -25,6 +29,8 @@ mcpwn-red probe --transport stdio
 # Run deployment checks (YAML launches temporary MCPwn instances)
 mcpwn-red scan --all --transport stdio --confirm-write
 ```
+
+Install and configure [MCPwn](https://gitlab.com/parrotsec/project/mcpwn) first, and make its `mcpwn` executable available on `PATH` for the stdio probe. Installing `mcpwn-red` does not install MCPwn. If the executable is elsewhere, `scan` accepts `--mcpwn-command /path/to/mcpwn`; `probe` uses `mcpwn` from `PATH`. On Debian/Ubuntu, install `python3-venv` if creating the environment fails.
 
 ---
 
