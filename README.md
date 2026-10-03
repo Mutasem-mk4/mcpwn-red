@@ -30,18 +30,18 @@ mcpwn-red scan --all --transport stdio --confirm-write
 
 ## 🔍 Why mcpwn-red?
 
-As AI-driven pentesting engines like MCPwn become standard in security workflows, the "trusted execution layer" becomes a high-value target. A compromised MCPwn instance can lead to:
-*   **Operator Subversion:** Hostile targets injecting malicious tool definitions.
-*   **Data Leakage:** Prompt injection exfiltrating sensitive engagement data.
-*   **Host Compromise:** Container escapes via unsafe tool configurations.
+MCPwn accepts operator-defined tools. This project probes registration behavior and inspects tool metadata for risky configuration patterns; its output needs an explicit operator policy and review.
 
-`mcpwn-red` provides the necessary "Shift-Left" security checks to ensure your tools are as secure as the targets you are testing.
+A registered shell command or a tool available through MCP is not, by itself, evidence of unauthorized access, a container escape, or successful prompt injection. Local output tests are simulations, not tests of a deployed language model's behavior.
 
-### Key Validation Modules:
-*   **YAML Injection Tester:** Probes for tool-definition poisoning and metadata subversion.
-*   **Output Injection Simulator:** Tests for exfiltration and instruction smuggling through tool outputs.
-*   **Container Boundary Checker:** Verifies Docker/Host isolation and environment variable protection.
-*   **Tool Scope Escalation:** Confirms that logical boundaries between tool categories are enforced.
+### Assessment Modules
+
+* **YAML:** Submits fixture tool definitions and records registration or rejection.
+* **Output:** Simulates propagation of hostile output through a local mock client.
+* **Container:** Inspects available tool metadata for container-related risk patterns.
+* **Scope:** Inspects tool availability and metadata for scope-related risk patterns.
+
+These checks do not certify deployment security or isolation. Review findings against your intended trust boundaries before acting on them.
 
 ---
 
