@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - parrot/submission-clean
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install development dependencies
+        run: pip install -e .[dev]
+
+      - name: Run ruff
+        run: ruff check .
+
+      - name: Run mypy
+        run: mypy mcpwn_red
+
+      - name: Set up Go for MCPwn integration tests
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+
+      - name: Build pinned MCPwn target
+        run: |
+          git clone https://gitlab.com/parrotsec/project/mcpwn.git "$RUNNER_TEMP/mcpwn-target"
+          cd "$RUNNER_TEMP/mcpwn-target"
+          git checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
+          go build -o "$RUNNER_TEMP/mcpwn-test" ./cmd/mcpwn
+          echo "MCPWN_TEST_COMMAND=$RUNNER_TEMP/mcpwn-test" >> "$GITHUB_ENV"
+
+      - name: Run pytest including real MCPwn configuration tests
+        run: pytest
+
+  debian-validation:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:sid
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Debian packaging tools and base dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            autopkgtest \
+            build-essential \
+            ca-certificates \
+            debhelper \
+            devscripts \
+            dh-python \
+            git \
+            lintian \
+            pybuild-plugin-pyproject \
+            python3-all \
+            python3-build \
+            python3-click \
+            python3-hatchling \
+            python3-httpx \
+            python3-jinja2 \
+            python3-pydantic \
+            python3-rich \
+            python3-setuptools \
+            python3-yaml
+
+      - name: Clone python3-mcp packaging repository
+        run: |
+          git clone https://github.com/Mutasem-mk4/python3-mcp-debian.git ../python3-mcp-debian
+          git -C ../python3-mcp-debian checkout 45d116b97a50ff5a8fb3cc0738064b44b81b43a8
+
+      - name: Install python3-mcp dependency set
+        run: |
+          apt-get install -y \
+            python3-anyio \
+            python3-httpx-sse \
+            python3-jsonschema \
+            python3-jwt \
+            python3-multipart \
+            python3-pydantic-settings \
+            python3-sse-starlette \
+            python3-starlette \
+            python3-typer \
+            python3-typing-extensions \
+            python3-typing-inspection \
+            python3-uvicorn \
+            python3-websockets
+
+      - name: Build and install python3-mcp
+        run: |
+          cd ../python3-mcp-debian
+          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
+          git archive --format=tar.gz \
+            --prefix="python-mcp-${version}/" \
+            -o "../python-mcp_${version}.orig.tar.gz" \
+            HEAD
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc
+          apt-get install -y ../python3-mcp_*_all.deb
+
+      - name: Create upstream orig tarball
+        run: |
+          version="$(dpkg-parsechangelog -SVersion | sed 's/-.*//')"
+          tar \
+            --exclude-vcs \
+            --transform "s,^\./,mcpwn-red-${version}/," \
+            -czf "../mcpwn-red_${version}.orig.tar.gz" \
+            .
+
+      - name: Build Debian package
+        run: |
+          chmod +x debian/rules
+          dpkg-buildpackage -us -uc
+
+      - name: Run lintian
+        run: lintian ../mcpwn-red_*.changes
+
+      - name: Run autopkgtest
+        run: |
+          status=0
+          autopkgtest ../python3-mcp_*_all.deb ../mcpwn-red_*.changes -- null || status=$?
+          # These CLI tests are explicitly superficial (autopkgtest status 8).
+          if [ "$status" -ne 0 ] && [ "$status" -ne 8 ]; then
+            exit "$status"
+          fi
+
+      - name: Collect Debian release artifacts
+        run: |
+          mkdir -p release-artifacts
+          cp ../mcpwn-red_*.deb ../mcpwn-red_*.changes ../mcpwn-red_*.orig.tar.gz release-artifacts/
+
+      - name: Upload Debian release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mcpwn-red-debian
+          path: release-artifacts/*

@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcpwn-red"
+version = "0.2.0"
+description = "Adversarial safety harness for the MCPwn AI pentesting execution engine"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+keywords = ["security", "mcp", "pentesting", "adversarial-ai", "safety", "parrot-os"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: System Administrators",
+  "Topic :: Security",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "click>=8.1",
+  "mcp>=1.0,<2",
+  "rich>=13.0",
+  "pydantic>=2.0",
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+  "jinja2>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/Mutasem-mk4/mcpwn-red"
+Repository = "https://github.com/Mutasem-mk4/mcpwn-red"
+Issues = "https://github.com/Mutasem-mk4/mcpwn-red/issues"
+Documentation = "https://github.com/Mutasem-mk4/mcpwn-red/blob/main/README.md"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-asyncio",
+  "respx",
+  "ruff",
+  "mypy",
+]
+
+[project.scripts]
+mcpwn-red = "mcpwn_red.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcpwn_red"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "N",
+  "UP",
+]
+ignore = ["UP017"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]

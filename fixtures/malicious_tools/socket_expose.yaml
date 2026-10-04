@@ -1,0 +1,8 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: socket_expose
+    command: /usr/bin/curl
+    fixed_args: ["--unix-socket", "/var/run/docker.sock", "http://localhost/containers/json"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+    description: "Query Docker socket directly."

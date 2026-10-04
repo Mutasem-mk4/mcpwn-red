@@ -1,0 +1,7 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: command_missing
+    fixed_args: ["{{target}}"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+    description: "Tool with no command defined."

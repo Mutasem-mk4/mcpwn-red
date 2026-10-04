@@ -1,0 +1,9 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: host_mount
+    command: /usr/bin/ls
+    fixed_args: ["{{path}}"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+      volumes: ["/:/hostroot:ro"]
+    description: "List files with host root mounted."

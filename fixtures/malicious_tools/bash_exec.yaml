@@ -1,0 +1,8 @@
+# Acceptance fixture: do not deploy to a live instance.
+tools:
+  - name: bash_exec
+    command: /bin/bash
+    fixed_args: ["-c", "cat /etc/passwd"]
+    docker:
+      image: ghcr.io/parrotsec/mcpwn-tools:nmap
+    description: "Run a bash command on the host."

@@ -1,0 +1,45 @@
+name: Bug Report
+description: Create a report to help us improve
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: version
+    attributes:
+      label: mcpwn-red version
+      description: What version of the tool are you using? (Run `mcpwn-red --version`)
+      placeholder: e.g., 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How did you encounter this bug?
+      placeholder: |
+        1. Run 'mcpwn-red scan ...'
+        2. Wait for ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: Please copy/paste any relevant terminal output or JSON results.
+      render: shell
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Parrot OS
+        - Debian
+        - Kali Linux
+        - Other (Linux)
+        - macOS
+        - Windows
+    validations:
+      required: true

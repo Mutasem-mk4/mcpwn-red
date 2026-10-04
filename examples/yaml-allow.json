@@ -1,0 +1,37 @@
+{
+  "name": "Example allow YAML registration",
+  "checks": {
+    "YAML-01": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-02": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-03": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-04": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-05": {
+      "action": "deny",
+      "severity": "medium"
+    },
+    "YAML-06": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-07": {
+      "action": "allow",
+      "severity": "medium"
+    },
+    "YAML-08": {
+      "action": "allow",
+      "severity": "medium"
+    }
+  }
+}
