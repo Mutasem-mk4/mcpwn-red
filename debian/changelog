@@ -4,6 +4,7 @@ mcpwn-red (0.2.0-2) unstable; urgency=medium
   * Assess installed policy and report behavior through real SDK fixtures.
   * Correct package scope and maintainer contact metadata.
   * Cover examples and fixtures in the package copyright manifest.
+  * Correct the preceding release date to its verified publication time.
 
  -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sat, 03 Oct 2026 23:52:00 +0000
 
@@ -13,7 +14,7 @@ mcpwn-red (0.2.0-1) unstable; urgency=medium
   * Preserve observations and evidence kinds in exported reports.
   * Keep undeclared policy and unverified scope execution inconclusive.
 
- -- Mutasem Kharma <140179052+Mutasem-mk4@users.noreply.github.com>  Sun, 04 Oct 2026 12:00:00 +0300
+ -- Mutasem Kharma <140179052+Mutasem-mk4@users.noreply.github.com>  Sat, 03 Oct 2026 23:12:25 +0000
 
 mcpwn-red (0.1.1-1) unstable; urgency=medium
 
